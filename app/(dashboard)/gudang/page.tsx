@@ -10,8 +10,9 @@ import { Modal } from '@/components/ui/Modal';
 import { formatDate } from '@/lib/utils';
 import { useTransactions } from '@/lib/transaction-context';
 import { useBarang } from '@/lib/barang-context';
-import { useAuth } from '@/lib/auth-context';
+import { useUsers } from '@/lib/user-context';
 import { Transaksi } from '@/types';
+import { DashboardSkeleton } from '@/components/ui/Skeleton';
 
 // Stats card
 function StatCard({ icon, iconColor, label, value }: {
@@ -32,15 +33,22 @@ function StatCard({ icon, iconColor, label, value }: {
 }
 
 export default function GudangDashboard() {
-    const { transactions, getTransactionDetails, updateTransactionStatus } = useTransactions();
-    const { barang: barangList, getBarangById, processCheckout, processReturn } = useBarang();
-    const { registeredUsers } = useAuth();
+    const { transactions, getTransactionDetails, updateTransactionStatus, isLoading: transactionsLoading } = useTransactions();
+    const { barang: barangList, getBarangById, processCheckout, processReturn, isLoading: barangLoading } = useBarang();
+    const { users, isLoading: usersLoading } = useUsers();
     const [selectedTrx, setSelectedTrx] = useState<Transaksi | null>(null);
     const [actionType, setActionType] = useState<'serahkan' | 'terima' | null>(null);
 
+    // Show skeleton while loading
+    if (transactionsLoading || barangLoading || usersLoading) {
+        return <DashboardSkeleton />;
+    }
+
     const pendingCheckout = transactions.filter(t => t.status === 'menunggu_konfirmasi');
     // Items due for return (waiting for confirmation OR active rentals due today/past due)
-    const today = new Date().toISOString().split('T')[0];
+    // Use local date (not UTC) to avoid timezone issues
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const pendingReturn = transactions.filter(t =>
         t.status === 'menunggu_pengembalian' ||
         (t.status === 'sedang_disewa' && t.tanggalSelesai <= today)
@@ -181,7 +189,7 @@ export default function GudangDashboard() {
                                     </TableRow>
                                 ) : (
                                     pendingCheckout.slice(0, 5).map(trx => {
-                                        const member = registeredUsers.find(u => u.id === trx.userId);
+                                        const member = users.find(u => u.id === trx.userId);
                                         const details = getTransactionDetails(trx.id);
                                         const barangNames = details.map(d => getBarangById(d.barangId)?.nama).filter(Boolean).join(', ');
 
@@ -225,7 +233,7 @@ export default function GudangDashboard() {
                                 </TableHead>
                                 <TableBody>
                                     {pendingReturn.slice(0, 5).map(trx => {
-                                        const member = registeredUsers.find(u => u.id === trx.userId);
+                                        const member = users.find(u => u.id === trx.userId);
                                         const details = getTransactionDetails(trx.id);
                                         const barangNames = details.map(d => getBarangById(d.barangId)?.nama).filter(Boolean).join(', ');
                                         const isOverdue = today > trx.tanggalSelesai;
@@ -314,7 +322,7 @@ export default function GudangDashboard() {
                             </div>
                             <div style={{ marginBottom: '0.5rem' }}>
                                 <span style={{ color: 'var(--text-muted)' }}>Member:</span>{' '}
-                                {registeredUsers.find(u => u.id === selectedTrx.userId)?.nama}
+                                {users.find(u => u.id === selectedTrx.userId)?.nama}
                             </div>
                             <div>
                                 <span style={{ color: 'var(--text-muted)' }}>Periode:</span>{' '}

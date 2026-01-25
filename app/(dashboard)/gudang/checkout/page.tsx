@@ -9,13 +9,13 @@ import { Modal } from '@/components/ui/Modal';
 import { formatDate } from '@/lib/utils';
 import { useTransactions } from '@/lib/transaction-context';
 import { useBarang } from '@/lib/barang-context';
-import { useAuth } from '@/lib/auth-context';
+import { useUsers } from '@/lib/user-context';
 import { Transaksi } from '@/types';
 
 export default function CheckoutPage() {
     const { transactions, getTransactionDetails, updateTransactionStatus } = useTransactions();
     const { getBarangById, processCheckout, processReturn } = useBarang();
-    const { registeredUsers } = useAuth();
+    const { users } = useUsers();
     const [selectedTrx, setSelectedTrx] = useState<Transaksi | null>(null);
     const [actionType, setActionType] = useState<'serahkan' | 'terima' | null>(null);
     const [activeTab, setActiveTab] = useState<'serahkan' | 'terima'>('serahkan');
@@ -118,7 +118,7 @@ export default function CheckoutPage() {
                                 <TableEmpty message={`Tidak ada barang ${activeTab === 'serahkan' ? 'menunggu diserahkan' : 'menunggu dikembalikan'}`} />
                             ) : (
                                 (activeTab === 'serahkan' ? pendingCheckout : pendingReturn).map(trx => {
-                                    const member = registeredUsers.find(u => u.id === trx.userId);
+                                    const member = users.find(u => u.id === trx.userId);
                                     const details = getTransactionDetails(trx.id);
                                     const barangNames = details.map(d => getBarangById(d.barangId)?.nama).filter(Boolean).join(', ');
                                     const isOverdue = activeTab === 'terima' && new Date() > new Date(trx.tanggalSelesai);
@@ -188,7 +188,7 @@ export default function CheckoutPage() {
                                 </div>
                                 <div>
                                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Member</div>
-                                    <div style={{ fontWeight: 600 }}>{registeredUsers.find(u => u.id === selectedTrx.userId)?.nama}</div>
+                                    <div style={{ fontWeight: 600 }}>{users.find(u => u.id === selectedTrx.userId)?.nama}</div>
                                 </div>
                                 <div>
                                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Tanggal Mulai</div>

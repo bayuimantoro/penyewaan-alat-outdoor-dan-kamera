@@ -9,11 +9,12 @@ import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from '@
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { formatRupiah, formatDate } from '@/lib/utils';
-import { mockBarang, mockDetailTransaksi } from '@/lib/mock-data';
+import { mockDetailTransaksi } from '@/lib/mock-data';
 import { useTransactions } from '@/lib/transaction-context';
 import { useUsers } from '@/lib/user-context';
-import { useAuth } from '@/lib/auth-context';
+import { useBarang } from '@/lib/barang-context';
 import { Transaksi, StatusTransaksi } from '@/types';
+import { DashboardSkeleton } from '@/components/ui/Skeleton';
 
 // Stats card
 function StatCard({ icon, iconColor, label, value, change }: {
@@ -41,14 +42,30 @@ function StatCard({ icon, iconColor, label, value, change }: {
 
 export default function AdminDashboard() {
     const router = useRouter();
-    const { transactions, updateTransactionStatus } = useTransactions();
-    const { users, updateUserStatus } = useUsers();
-    const { registeredUsers } = useAuth();
+    const { transactions, updateTransactionStatus, isLoading: transactionsLoading } = useTransactions();
+    const { users, updateUserStatus, isLoading: usersLoading } = useUsers();
+    const { barang: barangList, isLoading: barangLoading } = useBarang();
     const [selectedTrx, setSelectedTrx] = useState<Transaksi | null>(null);
+
+    // Show skeleton while loading
+    const isLoading = transactionsLoading || usersLoading || barangLoading;
+    if (isLoading) {
+        return <DashboardSkeleton />;
+    }
 
     const pendingMembers = users.filter(u => u.role === 'member' && u.statusVerifikasi === 'pending');
     const activeTransaksi = transactions.filter(t => t.status !== 'selesai' && t.status !== 'dibatalkan');
-    const totalRevenue = transactions.filter(t => t.status === 'selesai').reduce((sum, t) => sum + t.total, 0);
+    // Calculate revenue from all non-cancelled transactions with fallback like Member dashboard
+    const totalRevenue = transactions
+        .filter(t => t.status !== 'dibatalkan')
+        .reduce((sum, t) => {
+            let validTotal = Number(t.total);
+            if (isNaN(validTotal) || validTotal === 0) {
+                // Fallback to subtotal + denda if total is missing/zero
+                validTotal = (Number(t.subtotal) || 0) + (Number(t.denda) || 0);
+            }
+            return sum + validTotal;
+        }, 0);
 
     const handleApproveMember = (memberId: number) => {
         updateUserStatus(memberId, 'approved');
@@ -102,7 +119,7 @@ export default function AdminDashboard() {
                     icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21" /><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" /></svg>}
                     iconColor="orange"
                     label="Total Barang"
-                    value={mockBarang.length}
+                    value={barangList.length}
                 />
             </div>
 
@@ -223,7 +240,7 @@ export default function AdminDashboard() {
                         </TableHead>
                         <TableBody>
                             {transactions.slice(0, 5).map(trx => {
-                                const member = registeredUsers.find(u => u.id === trx.userId);
+                                const member = users.find(u => u.id === trx.userId);
                                 return (
                                     <TableRow key={trx.id}>
                                         <TableCell>
@@ -282,7 +299,7 @@ export default function AdminDashboard() {
                             {mockDetailTransaksi
                                 .filter(d => d.transaksiId === selectedTrx.id)
                                 .map(detail => {
-                                    const barang = mockBarang.find(b => b.id === detail.barangId);
+                                    const barang = barangList.find(b => b.id === detail.barangId);
                                     return (
                                         <div key={detail.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem', background: 'var(--bg-secondary)', borderRadius: '0.5rem', marginBottom: '0.5rem' }}>
                                             <div>

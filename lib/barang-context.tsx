@@ -1,66 +1,108 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { Barang, StatusBarang, DetailTransaksi } from '@/types';
-import { mockBarang as initialBarang } from '@/lib/mock-data';
 
 interface BarangContextType {
     barang: Barang[];
-    addBarang: (item: Barang) => void;
-    updateBarang: (id: number, data: Partial<Barang>) => void;
-    updateBarangStatus: (id: number, status: StatusBarang) => void;
-    deleteBarang: (id: number) => void;
+    isLoading: boolean;
+    refreshBarang: () => Promise<void>;
+    addBarang: (item: Omit<Barang, 'id'>) => Promise<boolean>;
+    updateBarang: (id: number, data: Partial<Barang>) => Promise<boolean>;
+    updateBarangStatus: (id: number, status: StatusBarang) => Promise<boolean>;
+    deleteBarang: (id: number) => Promise<boolean>;
     getBarangById: (id: number) => Barang | undefined;
-    // Stock management - auto update status based on stock
-    decreaseStock: (barangId: number, qty: number) => void;
-    increaseStock: (barangId: number, qty: number) => void;
-    processCheckout: (details: DetailTransaksi[]) => void;
-    processReturn: (details: DetailTransaksi[]) => void;
+    // Stock management
+    decreaseStock: (barangId: number, qty: number) => Promise<boolean>;
+    increaseStock: (barangId: number, qty: number) => Promise<boolean>;
+    processCheckout: (details: DetailTransaksi[]) => Promise<boolean>;
+    processReturn: (details: DetailTransaksi[]) => Promise<boolean>;
 }
 
 const BarangContext = createContext<BarangContextType | undefined>(undefined);
 
 export function BarangProvider({ children }: { children: ReactNode }) {
     const [barang, setBarang] = useState<Barang[]>([]);
-    const [isLoaded, setIsLoaded] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
 
-    // Load from localStorage on mount
-    useEffect(() => {
-        const saved = localStorage.getItem('rental_barang');
-        if (saved) {
-            try {
-                setBarang(JSON.parse(saved));
-            } catch (e) {
-                console.error('Failed to parse barang from localStorage');
-                setBarang(initialBarang);
+    // Fetch barang from API
+    const refreshBarang = useCallback(async () => {
+        try {
+            setIsLoading(true);
+            const response = await fetch('/api/barang');
+            const data = await response.json();
+            if (data.success) {
+                setBarang(data.barang);
             }
-        } else {
-            setBarang(initialBarang);
+        } catch (error) {
+            console.error('Error fetching barang:', error);
+        } finally {
+            setIsLoading(false);
         }
-        setIsLoaded(true);
     }, []);
 
-    // Save to localStorage whenever data changes
+    // Load on mount
     useEffect(() => {
-        if (isLoaded) {
-            localStorage.setItem('rental_barang', JSON.stringify(barang));
+        refreshBarang();
+    }, [refreshBarang]);
+
+    const addBarang = async (item: Omit<Barang, 'id'>): Promise<boolean> => {
+        try {
+            const response = await fetch('/api/barang', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(item)
+            });
+            const data = await response.json();
+            if (data.success) {
+                await refreshBarang();
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Error adding barang:', error);
+            return false;
         }
-    }, [barang, isLoaded]);
-
-    const addBarang = (item: Barang) => {
-        setBarang(prev => [item, ...prev]);
     };
 
-    const updateBarang = (id: number, data: Partial<Barang>) => {
-        setBarang(prev => prev.map(b => b.id === id ? { ...b, ...data } : b));
+    const updateBarang = async (id: number, data: Partial<Barang>): Promise<boolean> => {
+        try {
+            const response = await fetch('/api/barang', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, ...data })
+            });
+            const result = await response.json();
+            if (result.success) {
+                await refreshBarang();
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Error updating barang:', error);
+            return false;
+        }
     };
 
-    const updateBarangStatus = (id: number, status: StatusBarang) => {
-        setBarang(prev => prev.map(b => b.id === id ? { ...b, status } : b));
+    const updateBarangStatus = async (id: number, status: StatusBarang): Promise<boolean> => {
+        return updateBarang(id, { status });
     };
 
-    const deleteBarang = (id: number) => {
-        setBarang(prev => prev.filter(b => b.id !== id));
+    const deleteBarang = async (id: number): Promise<boolean> => {
+        try {
+            const response = await fetch(`/api/barang?id=${id}`, {
+                method: 'DELETE'
+            });
+            const data = await response.json();
+            if (data.success) {
+                setBarang(prev => prev.filter(b => b.id !== id));
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Error deleting barang:', error);
+            return false;
+        }
     };
 
     const getBarangById = (id: number): Barang | undefined => {
@@ -68,48 +110,87 @@ export function BarangProvider({ children }: { children: ReactNode }) {
     };
 
     // Decrease stock when items are handed over to member
-    const decreaseStock = (barangId: number, qty: number) => {
-        setBarang(prev => prev.map(b => {
-            if (b.id === barangId) {
-                const newStock = Math.max(0, b.stok - qty);
-                // Auto-update status based on remaining stock
-                const newStatus: StatusBarang = newStock === 0 ? 'disewa' : b.status;
-                return { ...b, stok: newStock, status: newStatus };
+    const decreaseStock = async (barangId: number, qty: number): Promise<boolean> => {
+        try {
+            const response = await fetch('/api/barang/stock', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: barangId, action: 'decrease', qty })
+            });
+            const data = await response.json();
+            if (data.success) {
+                // Update local state
+                setBarang(prev => prev.map(b => {
+                    if (b.id === barangId) {
+                        return { ...b, stok: data.newStok, status: data.newStatus };
+                    }
+                    return b;
+                }));
+                return true;
             }
-            return b;
-        }));
+            return false;
+        } catch (error) {
+            console.error('Error decreasing stock:', error);
+            return false;
+        }
     };
 
     // Increase stock when items are returned
-    const increaseStock = (barangId: number, qty: number) => {
-        setBarang(prev => prev.map(b => {
-            if (b.id === barangId) {
-                const newStock = b.stok + qty;
-                // Auto-update status back to tersedia if stock > 0 and was 'disewa'
-                const newStatus: StatusBarang = (b.status === 'disewa' && newStock > 0) ? 'tersedia' : b.status;
-                return { ...b, stok: newStock, status: newStatus };
+    const increaseStock = async (barangId: number, qty: number): Promise<boolean> => {
+        try {
+            const response = await fetch('/api/barang/stock', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: barangId, action: 'increase', qty })
+            });
+            const data = await response.json();
+            if (data.success) {
+                setBarang(prev => prev.map(b => {
+                    if (b.id === barangId) {
+                        return { ...b, stok: data.newStok, status: data.newStatus };
+                    }
+                    return b;
+                }));
+                return true;
             }
-            return b;
-        }));
+            return false;
+        } catch (error) {
+            console.error('Error increasing stock:', error);
+            return false;
+        }
     };
 
-    // Process multiple items at checkout (when gudang hands over to member)
-    const processCheckout = (details: DetailTransaksi[]) => {
-        details.forEach(detail => {
-            decreaseStock(detail.barangId, detail.qty);
-        });
+    // Process multiple items at checkout
+    const processCheckout = async (details: DetailTransaksi[]): Promise<boolean> => {
+        try {
+            for (const detail of details) {
+                await decreaseStock(detail.barangId, detail.qty);
+            }
+            return true;
+        } catch (error) {
+            console.error('Error processing checkout:', error);
+            return false;
+        }
     };
 
-    // Process multiple items at return (when member returns items)
-    const processReturn = (details: DetailTransaksi[]) => {
-        details.forEach(detail => {
-            increaseStock(detail.barangId, detail.qty);
-        });
+    // Process multiple items at return
+    const processReturn = async (details: DetailTransaksi[]): Promise<boolean> => {
+        try {
+            for (const detail of details) {
+                await increaseStock(detail.barangId, detail.qty);
+            }
+            return true;
+        } catch (error) {
+            console.error('Error processing return:', error);
+            return false;
+        }
     };
 
     return (
         <BarangContext.Provider value={{
             barang,
+            isLoading,
+            refreshBarang,
             addBarang,
             updateBarang,
             updateBarangStatus,

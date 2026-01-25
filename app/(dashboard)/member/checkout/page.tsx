@@ -9,7 +9,7 @@ import { formatRupiah, formatDate, generateTransactionCode, calculateDays } from
 import { mockKategori } from '@/lib/mock-data';
 import { useCart } from '@/lib/cart-context';
 import { useTransactions } from '@/lib/transaction-context';
-import { useAuth } from '@/lib/auth-context';
+import { useSession } from '@/lib/session-context';
 import { useBarang } from '@/lib/barang-context';
 import { Transaksi } from '@/types';
 
@@ -17,7 +17,7 @@ export default function CheckoutPage() {
     const router = useRouter();
     const { items: cartItems, clearCart } = useCart();
     const { addTransaction, transactions } = useTransactions();
-    const { currentUser } = useAuth();
+    const { currentUser } = useSession();
     const { processCheckout } = useBarang();
     const [isProcessing, setIsProcessing] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
@@ -26,7 +26,17 @@ export default function CheckoutPage() {
     // Calculate totals from cart
     const calculateItemSubtotal = (item: typeof cartItems[0]) => {
         const days = calculateDays(item.tanggalMulai, item.tanggalSelesai);
-        return item.barang.hargaSewaPerHari * item.qty * days;
+        // Try multiple field names for compatibility
+        const price = Number(item.barang.hargaSewa) ||
+            Number(item.barang.hargaSewaPerHari) ||
+            Number((item.barang as any).harga_sewa_per_hari) ||
+            0;
+
+        if (price === 0) {
+            console.warn('Price is 0 for item:', item.barang.nama, item.barang);
+        }
+
+        return price * item.qty * days;
     };
 
     const subtotal = cartItems.reduce((sum, item) => sum + calculateItemSubtotal(item), 0);
@@ -37,7 +47,7 @@ export default function CheckoutPage() {
     const firstItem = cartItems[0];
     const totalDays = firstItem ? calculateDays(firstItem.tanggalMulai, firstItem.tanggalSelesai) : 0;
 
-    const handlePayment = () => {
+    const handlePayment = async () => {
         if (cartItems.length === 0) {
             alert('Keranjang kosong!');
             router.push('/member/keranjang');
@@ -52,23 +62,18 @@ export default function CheckoutPage() {
 
         setIsProcessing(true);
 
-        // Simulate payment processing
-        setTimeout(() => {
+        try {
             const code = generateTransactionCode();
-            setTransactionCode(code);
 
-            const transactionId = Math.max(...transactions.map(t => t.id), 0) + 1;
-
-            // Create new transaction
-            const newTransaction: Transaksi = {
-                id: transactionId,
+            // Create new transaction (without id - API will generate it)
+            const newTransaction = {
                 kode: code,
-                userId: currentUser.id, // Use logged-in user's ID (validated)
+                userId: currentUser.id,
                 tanggalBooking: new Date().toISOString().split('T')[0],
                 tanggalMulai: firstItem?.tanggalMulai || new Date().toISOString().split('T')[0],
                 tanggalSelesai: firstItem?.tanggalSelesai || new Date().toISOString().split('T')[0],
                 totalHari: totalDays,
-                status: 'menunggu_konfirmasi', // Waiting for gudang to hand over
+                status: 'menunggu_pembayaran' as const,
                 subtotal: subtotal,
                 diskon: 0,
                 denda: 0,
@@ -77,22 +82,29 @@ export default function CheckoutPage() {
             };
 
             // Create detail transaksi from cart items
-            const newDetails = cartItems.map((item, index) => ({
-                id: Date.now() + index,
-                transaksiId: transactionId,
+            const newDetails = cartItems.map((item) => ({
                 barangId: item.barang.id,
                 qty: item.qty,
-                hargaSewa: item.barang.hargaSewaPerHari,
+                hargaSewa: item.barang.hargaSewaPerHari || item.barang.hargaSewa || 0,
                 subtotal: calculateItemSubtotal(item),
             }));
 
-            // Add transaction with details to context (saved to localStorage)
-            addTransaction(newTransaction, newDetails);
+            // Add transaction with details to database (await the async call!)
+            const transaksiId = await addTransaction(newTransaction, newDetails);
 
-            clearCart(); // Clear cart after successful payment
+            if (transaksiId) {
+                setTransactionCode(code);
+                clearCart();
+                setIsSuccess(true);
+            } else {
+                alert('Gagal menyimpan transaksi. Silakan coba lagi.');
+            }
+        } catch (error) {
+            console.error('Payment error:', error);
+            alert('Terjadi kesalahan saat memproses pembayaran.');
+        } finally {
             setIsProcessing(false);
-            setIsSuccess(true);
-        }, 2000);
+        }
     };
 
     if (isSuccess) {

@@ -6,9 +6,11 @@ import { Card, CardTitle, CardContent } from '@/components/ui/Card';
 import { StatusBadge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { formatRupiah, formatDate } from '@/lib/utils';
-import { mockBarang, mockKategori } from '@/lib/mock-data';
+import { mockKategori } from '@/lib/mock-data';
 import { useTransactions } from '@/lib/transaction-context';
-import { useAuth } from '@/lib/auth-context';
+import { useSession } from '@/lib/session-context';
+import { useBarang } from '@/lib/barang-context';
+import { DashboardSkeleton } from '@/components/ui/Skeleton';
 
 // Stats card component
 function StatCard({
@@ -34,10 +36,17 @@ function StatCard({
 }
 
 export default function MemberDashboard() {
-    // Get current user from AuthContext
-    const { currentUser } = useAuth();
+    // Get current user from SessionContext (from database session)
+    const { currentUser, isLoading: sessionLoading } = useSession();
     // Use transaction context for synced data
-    const { transactions } = useTransactions();
+    const { transactions, isLoading: transactionsLoading } = useTransactions();
+    // Get barang list from database
+    const { barang: barangList, isLoading: barangLoading } = useBarang();
+
+    // Show skeleton while loading
+    if (sessionLoading || transactionsLoading || barangLoading) {
+        return <DashboardSkeleton />;
+    }
 
     // Filter transactions to only show current user's transactions
     // Use currentUser.id if available, otherwise show empty
@@ -49,14 +58,14 @@ export default function MemberDashboard() {
     const activeRentals = userTransactions.filter(t => t.status === 'sedang_disewa');
     const pendingPayments = userTransactions.filter(t => t.status === 'menunggu_pembayaran');
 
-    // Get first name for greeting
-    const firstName = currentUser?.nama?.split(' ')[0] || 'Member';
+    // Get user's full name for greeting
+    const userName = currentUser?.nama || 'Member';
 
     return (
         <div>
             {/* Header */}
             <div className="page-header">
-                <h1 className="page-title">Selamat Datang, {firstName}! 👋</h1>
+                <h1 className="page-title">Selamat Datang, {userName}! 👋</h1>
                 <p className="page-subtitle">Berikut ringkasan aktivitas penyewaan Anda</p>
             </div>
 
@@ -105,7 +114,20 @@ export default function MemberDashboard() {
                     }
                     iconColor="cyan"
                     label="Total Spending"
-                    value={formatRupiah(userTransactions.reduce((acc, t) => acc + t.total, 0))}
+                    value={formatRupiah(
+                        userTransactions
+                            .filter(t => t.status !== 'dibatalkan' && t.status !== 'menunggu_pembayaran')
+                            .reduce((acc, t) => {
+                                let validTotal = Number(t.total);
+                                if (isNaN(validTotal) || validTotal === 0) {
+                                    // Fallback calculation if total is invalid
+                                    // Note: We don't have full details here easily without getTransactionDetails
+                                    // So we rely on subtotal + denda at least, or 0
+                                    validTotal = (Number(t.subtotal) || 0) + (Number(t.denda) || 0);
+                                }
+                                return acc + validTotal;
+                            }, 0)
+                    )}
                 />
             </div>
 
@@ -216,7 +238,7 @@ export default function MemberDashboard() {
                                     </div>
                                     <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>{kat.nama}</div>
                                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                        {mockBarang.filter(b => b.kategoriId === kat.id).length} item
+                                        {barangList.filter(b => b.kategoriId === kat.id).length} item
                                     </div>
                                 </div>
                             </Card>

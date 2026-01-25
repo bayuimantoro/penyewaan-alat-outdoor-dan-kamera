@@ -25,7 +25,8 @@ export default function KeranjangPage() {
     // Calculate totals
     const calculateItemSubtotal = (item: typeof cartItems[0]) => {
         const days = calculateDays(item.tanggalMulai, item.tanggalSelesai);
-        return item.barang.hargaSewaPerHari * item.qty * days;
+        const price = item.barang.hargaSewa || item.barang.hargaSewaPerHari || 0;
+        return price * item.qty * days;
     };
 
     const totalDays = cartItems.length > 0 ? calculateDays(cartItems[0].tanggalMulai, cartItems[0].tanggalSelesai) : 0;
@@ -110,7 +111,7 @@ export default function KeranjangPage() {
                                                             {item.barang.nama}
                                                         </h3>
                                                         <div style={{ fontSize: '0.875rem', color: 'var(--primary-400)' }}>
-                                                            {formatRupiah(item.barang.hargaSewaPerHari)} / hari
+                                                            {formatRupiah(item.barang.hargaSewa || item.barang.hargaSewaPerHari || 0)} / hari
                                                         </div>
                                                     </div>
                                                     <button

@@ -33,9 +33,18 @@ export default function LoginPage() {
 
         setIsLoading(true);
 
-        // Validate credentials via AuthContext
-        setTimeout(() => {
-            const result = loginUser(formData.email, formData.password);
+        try {
+            // Call API for database-based login
+            const response = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: formData.email,
+                    password: formData.password
+                })
+            });
+
+            const result = await response.json();
             setIsLoading(false);
 
             if (result.success) {
@@ -50,7 +59,10 @@ export default function LoginPage() {
             } else {
                 setErrors({ password: result.message });
             }
-        }, 1000);
+        } catch (error) {
+            setIsLoading(false);
+            setErrors({ password: 'Terjadi kesalahan. Coba lagi.' });
+        }
     };
 
     return (
@@ -151,9 +163,9 @@ export default function LoginPage() {
                     Demo Login (email / password):
                 </p>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                    <p>• <strong>admin@rentalgear.com</strong> / admin123 → Admin</p>
-                    <p>• <strong>gudang@rentalgear.com</strong> / gudang123 → Gudang</p>
-                    <p>• <strong>member@gmail.com</strong> / member123 → Member</p>
+                    <p>• <strong>admin@rentalgear.com</strong> / 123456 → Admin</p>
+                    <p>• <strong>gudang@rentalgear.com</strong> / 123456 → Gudang</p>
+                    <p>• <strong>ahmad@gmail.com</strong> / 123456 → Member</p>
                 </div>
             </div>
             {/* Reset Button */}

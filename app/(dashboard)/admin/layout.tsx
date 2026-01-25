@@ -6,14 +6,14 @@ import { TransactionProvider } from '@/lib/transaction-context';
 import { UserProvider } from '@/lib/user-context';
 import { BarangProvider } from '@/lib/barang-context';
 import { PromoProvider } from '@/lib/promo-context';
-import { useAuth } from '@/lib/auth-context';
+import { useSession } from '@/lib/session-context';
 
 export default function AdminLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
-    const { currentUser } = useAuth();
+    const { currentUser, isLoading } = useSession();
     const userName = currentUser?.nama || 'Admin';
 
     return (

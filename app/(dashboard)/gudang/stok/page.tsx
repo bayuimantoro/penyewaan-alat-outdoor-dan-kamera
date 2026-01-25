@@ -128,7 +128,7 @@ export default function StokBarangPage() {
                                             </TableCell>
                                             <TableCell>{kategori?.nama || '-'}</TableCell>
                                             <TableCell align="center">{barang.stok}</TableCell>
-                                            <TableCell align="right">{formatRupiah(barang.hargaSewaPerHari)}</TableCell>
+                                            <TableCell align="right">{formatRupiah(barang.hargaSewa || barang.hargaSewaPerHari || 0)}</TableCell>
                                             <TableCell align="center"><StatusBadge status={barang.status} /></TableCell>
                                             <TableCell align="center">
                                                 <Button size="sm" variant="secondary" onClick={() => setSelectedBarang(barang)}>Detail</Button>
@@ -180,11 +180,11 @@ export default function StokBarangPage() {
                             </div>
                             <div>
                                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Harga Sewa</div>
-                                <div style={{ fontWeight: 600, color: 'var(--primary-400)' }}>{formatRupiah(selectedBarang.hargaSewaPerHari)}/hari</div>
+                                <div style={{ fontWeight: 600, color: 'var(--primary-400)' }}>{formatRupiah(selectedBarang.hargaSewa || selectedBarang.hargaSewaPerHari || 0)}/hari</div>
                             </div>
                             <div>
                                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Denda Terlambat</div>
-                                <div style={{ fontWeight: 600, color: 'var(--error)' }}>{formatRupiah(selectedBarang.dendaPerHari)}/hari</div>
+                                <div style={{ fontWeight: 600, color: 'var(--error)' }}>{formatRupiah(selectedBarang.dendaPerHari || 0)}/hari</div>
                             </div>
                         </div>
 

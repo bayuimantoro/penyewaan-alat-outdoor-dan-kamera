@@ -35,28 +35,6 @@ export const mockUsers: User[] = [
         statusVerifikasi: 'approved',
         createdAt: '2024-06-15T10:30:00Z',
     },
-    {
-        id: 4,
-        nama: 'Siti Pendaki',
-        email: 'siti@gmail.com',
-        noHp: '081234567893',
-        alamat: 'Jl. Gunung No. 45, Surabaya',
-        role: 'member',
-        fotoKtp: '/uploads/ktp/siti.jpg',
-        statusVerifikasi: 'pending',
-        createdAt: '2024-12-10T14:20:00Z',
-    },
-    {
-        id: 5,
-        nama: 'Rudi Fotografer',
-        email: 'rudi@gmail.com',
-        noHp: '081234567894',
-        alamat: 'Jl. Kamera No. 67, Yogyakarta',
-        role: 'member',
-        fotoKtp: '/uploads/ktp/rudi.jpg',
-        statusVerifikasi: 'rejected',
-        createdAt: '2024-11-20T09:15:00Z',
-    },
 ];
 
 // Mock Categories
@@ -323,21 +301,6 @@ export const mockTransaksi: Transaksi[] = [
         status: 'selesai',
         createdAt: '2024-12-10T10:30:00Z',
     },
-    {
-        id: 3,
-        kode: 'TRX20241218003',
-        userId: 4,
-        tanggalBooking: '2024-12-18T14:00:00Z',
-        tanggalMulai: '2024-12-25',
-        tanggalSelesai: '2024-12-28',
-        totalHari: 4,
-        subtotal: 700000,
-        diskon: 0,
-        denda: 0,
-        total: 700000,
-        status: 'menunggu_pembayaran',
-        createdAt: '2024-12-18T14:00:00Z',
-    },
 ];
 
 // Mock Detail Transaksi
@@ -347,9 +310,6 @@ export const mockDetailTransaksi: DetailTransaksi[] = [
     { id: 2, transaksiId: 1, barangId: 4, hargaSewa: 75000, qty: 1, subtotal: 225000 },
     // Transaksi 2
     { id: 3, transaksiId: 2, barangId: 3, hargaSewa: 150000, qty: 1, subtotal: 450000 },
-    // Transaksi 3
-    { id: 4, transaksiId: 3, barangId: 5, hargaSewa: 100000, qty: 1, subtotal: 400000 },
-    { id: 5, transaksiId: 3, barangId: 7, hargaSewa: 35000, qty: 2, subtotal: 280000 },
 ];
 
 // Mock Inspeksi

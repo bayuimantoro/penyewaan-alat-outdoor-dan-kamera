@@ -4,11 +4,15 @@ import React, { useState } from 'react';
 import { Card, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { formatRupiah } from '@/lib/utils';
-import { mockBarang, mockUsers, mockKategori } from '@/lib/mock-data';
+import { mockKategori } from '@/lib/mock-data';
 import { useTransactions } from '@/lib/transaction-context';
+import { useBarang } from '@/lib/barang-context';
+import { useUsers } from '@/lib/user-context';
 
 export default function LaporanPage() {
     const { transactions } = useTransactions();
+    const { barang: barangList } = useBarang();
+    const { users } = useUsers();
     const [periode, setPeriode] = useState('bulan');
 
     // Calculate stats
@@ -23,13 +27,13 @@ export default function LaporanPage() {
     const transaksiSelesai = transactions.filter(t => t.status === 'selesai').length;
     const transaksiBerjalan = transactions.filter(t => t.status === 'sedang_disewa').length;
 
-    // Barang stats
-    const barangTersedia = mockBarang.filter(b => b.status === 'tersedia').length;
-    const barangDisewa = mockBarang.filter(b => b.status === 'disewa').length;
+    // Barang stats from database
+    const barangTersedia = barangList.filter(b => b.status === 'tersedia').length;
+    const barangDisewa = barangList.filter(b => b.status === 'disewa').length;
 
-    // Member stats
-    const memberAktif = mockUsers.filter(u => u.role === 'member' && u.statusVerifikasi === 'approved').length;
-    const memberPending = mockUsers.filter(u => u.role === 'member' && u.statusVerifikasi === 'pending').length;
+    // Member stats from database
+    const memberAktif = users.filter(u => u.role === 'member' && u.statusVerifikasi === 'approved').length;
+    const memberPending = users.filter(u => u.role === 'member' && u.statusVerifikasi === 'pending').length;
 
     // Top barang by orders (dummy data for demo)
     const topBarang = [
@@ -141,7 +145,7 @@ export default function LaporanPage() {
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                     <span style={{ color: 'var(--text-muted)' }}>Total</span>
-                                    <span style={{ fontWeight: 600 }}>{mockBarang.length}</span>
+                                    <span style={{ fontWeight: 600 }}>{barangList.length}</span>
                                 </div>
                             </div>
                         </CardContent>
@@ -216,7 +220,7 @@ export default function LaporanPage() {
             {/* Kategori Distribution */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '1rem', marginTop: '1.5rem' }}>
                 {mockKategori.map(kategori => {
-                    const count = mockBarang.filter(b => b.kategoriId === kategori.id).length;
+                    const count = barangList.filter(b => b.kategoriId === kategori.id).length;
                     return (
                         <Card key={kategori.id} hover={false}>
                             <div style={{ textAlign: 'center' }}>

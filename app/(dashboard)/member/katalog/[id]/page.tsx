@@ -7,20 +7,22 @@ import { Card, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { StatusBadge } from '@/components/ui/Badge';
 import { formatRupiah, calculateDays } from '@/lib/utils';
-import { mockBarang, mockKategori } from '@/lib/mock-data';
+import { mockKategori } from '@/lib/mock-data';
 import { useCart } from '@/lib/cart-context';
+import { useBarang } from '@/lib/barang-context';
 
 export default function BarangDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
     const router = useRouter();
     const { addItem } = useCart();
+    const { barang: barangList, isLoading } = useBarang();
     const [qty, setQty] = useState(1);
     const [tanggalMulai, setTanggalMulai] = useState('');
     const [tanggalSelesai, setTanggalSelesai] = useState('');
     const [isAddingToCart, setIsAddingToCart] = useState(false);
 
-    const barang = mockBarang.find(b => b.id === parseInt(id));
-    const kategori = mockKategori.find(k => k.id === barang?.kategoriId);
+    const barang = barangList.find(b => b.id === parseInt(id));
+    const kategori = mockKategori.find(k => k.nama === barang?.kategori);
 
     if (!barang) {
         return (
@@ -34,7 +36,7 @@ export default function BarangDetailPage({ params }: { params: Promise<{ id: str
     }
 
     const days = tanggalMulai && tanggalSelesai ? calculateDays(tanggalMulai, tanggalSelesai) : 0;
-    const totalHarga = barang.hargaSewaPerHari * qty * days;
+    const totalHarga = (barang.hargaSewa || barang.hargaSewaPerHari || 0) * qty * days;
     const isAvailable = barang.status === 'tersedia';
 
     const handleAddToCart = () => {
@@ -64,9 +66,9 @@ export default function BarangDetailPage({ params }: { params: Promise<{ id: str
         }, 500);
     };
 
-    // Related items
-    const relatedItems = mockBarang
-        .filter(b => b.kategoriId === barang.kategoriId && b.id !== barang.id)
+    // Related items from database
+    const relatedItems = barangList
+        .filter(b => b.kategori === barang.kategori && b.id !== barang.id)
         .slice(0, 3);
 
     return (
@@ -144,7 +146,7 @@ export default function BarangDetailPage({ params }: { params: Promise<{ id: str
                             marginBottom: '1.5rem',
                         }}
                     >
-                        <span className="gradient-text">{formatRupiah(barang.hargaSewaPerHari)}</span>
+                        <span className="gradient-text">{formatRupiah(barang.hargaSewa || barang.hargaSewaPerHari || 0)}</span>
                         <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}> / hari</span>
                     </div>
 
@@ -262,7 +264,7 @@ export default function BarangDetailPage({ params }: { params: Promise<{ id: str
                                         >
                                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
                                                 <span style={{ color: 'var(--text-muted)' }}>
-                                                    {formatRupiah(barang.hargaSewaPerHari)} × {qty} unit × {days} hari
+                                                    {formatRupiah(barang.hargaSewa || barang.hargaSewaPerHari || 0)} × {qty} unit × {days} hari
                                                 </span>
                                             </div>
                                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -317,7 +319,7 @@ export default function BarangDetailPage({ params }: { params: Promise<{ id: str
                                         {item.nama}
                                     </div>
                                     <div style={{ fontSize: '0.875rem', color: 'var(--primary-400)' }}>
-                                        {formatRupiah(item.hargaSewaPerHari)}/hari
+                                        {formatRupiah(item.hargaSewa || item.hargaSewaPerHari || 0)}/hari
                                     </div>
                                 </Card>
                             </Link>

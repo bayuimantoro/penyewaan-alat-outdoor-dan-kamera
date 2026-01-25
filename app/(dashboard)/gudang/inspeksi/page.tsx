@@ -9,7 +9,7 @@ import { Modal } from '@/components/ui/Modal';
 import { formatDate, formatRupiah } from '@/lib/utils';
 import { useTransactions } from '@/lib/transaction-context';
 import { useBarang } from '@/lib/barang-context';
-import { useAuth } from '@/lib/auth-context';
+import { useUsers } from '@/lib/user-context';
 import { Transaksi, StatusBarang } from '@/types';
 
 type KondisiBarang = 'baik' | 'rusak_ringan' | 'rusak_berat';
@@ -17,13 +17,16 @@ type KondisiBarang = 'baik' | 'rusak_ringan' | 'rusak_berat';
 export default function InspeksiPage() {
     const { transactions, getTransactionDetails, updateTransactionStatus } = useTransactions();
     const { getBarangById, processReturn, updateBarangStatus } = useBarang();
-    const { registeredUsers } = useAuth();
+    const { users } = useUsers();
     const [selectedTrx, setSelectedTrx] = useState<Transaksi | null>(null);
     const [inspeksiData, setInspeksiData] = useState<Record<number, KondisiBarang>>({});
     const [catatan, setCatatan] = useState('');
 
     // Get transactions pending return OR active rentals due today/past due
-    const today = new Date().toISOString().split('T')[0];
+    // Use local date (not UTC) to avoid timezone issues
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
     const pendingReturn = transactions.filter(t =>
         t.status === 'menunggu_pengembalian' ||
         (t.status === 'sedang_disewa' && t.tanggalSelesai <= today)
@@ -66,7 +69,7 @@ export default function InspeksiPage() {
         details.forEach(d => {
             const barang = getBarangById(d.barangId);
             if (barang) {
-                totalDenda += barang.dendaPerHari * d.qty * diffDays;
+                totalDenda += (barang.dendaPerHari ?? 0) * d.qty * diffDays;
             }
         });
 
@@ -169,7 +172,7 @@ export default function InspeksiPage() {
                                 <TableEmpty message="Tidak ada barang menunggu inspeksi" />
                             ) : (
                                 pendingReturn.map(trx => {
-                                    const member = registeredUsers.find(u => u.id === trx.userId);
+                                    const member = users.find(u => u.id === trx.userId);
                                     const details = getTransactionDetails(trx.id);
                                     const barangNames = details.map(d => getBarangById(d.barangId)?.nama).filter(Boolean).join(', ');
                                     const isOverdue = today > trx.tanggalSelesai;
@@ -239,7 +242,7 @@ export default function InspeksiPage() {
                         {/* Member Info */}
                         <div style={{ padding: '1rem', background: 'var(--bg-tertiary)', borderRadius: '0.75rem' }}>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.875rem' }}>
-                                <div><span style={{ color: 'var(--text-muted)' }}>Member:</span> {registeredUsers.find(u => u.id === selectedTrx.userId)?.nama}</div>
+                                <div><span style={{ color: 'var(--text-muted)' }}>Member:</span> {users.find(u => u.id === selectedTrx.userId)?.nama}</div>
                                 <div><span style={{ color: 'var(--text-muted)' }}>Periode:</span> {formatDate(selectedTrx.tanggalMulai)} - {formatDate(selectedTrx.tanggalSelesai)}</div>
                             </div>
                         </div>

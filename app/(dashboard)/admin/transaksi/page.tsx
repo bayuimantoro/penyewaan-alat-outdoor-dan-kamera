@@ -8,9 +8,9 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { formatRupiah, formatDate } from '@/lib/utils';
-import { mockDetailTransaksi, mockBarang } from '@/lib/mock-data';
 import { useTransactions } from '@/lib/transaction-context';
-import { useAuth } from '@/lib/auth-context';
+import { useUsers } from '@/lib/user-context';
+import { useBarang } from '@/lib/barang-context';
 import { Transaksi, StatusTransaksi } from '@/types';
 
 const statusOptions: { value: StatusTransaksi; label: string }[] = [
@@ -23,15 +23,16 @@ const statusOptions: { value: StatusTransaksi; label: string }[] = [
 ];
 
 export default function TransaksiPage() {
-    const { transactions, updateTransactionStatus, deleteTransaction } = useTransactions();
-    const { registeredUsers } = useAuth();
+    const { transactions, getTransactionDetails, updateTransactionStatus, deleteTransaction } = useTransactions();
+    const { users } = useUsers();
+    const { barang: barangList } = useBarang();
     const [selectedTrx, setSelectedTrx] = useState<Transaksi | null>(null);
     const [filterStatus, setFilterStatus] = useState<string>('all');
     const [searchQuery, setSearchQuery] = useState('');
 
     const filteredTransactions = transactions.filter(trx => {
         const matchesStatus = filterStatus === 'all' || trx.status === filterStatus;
-        const user = registeredUsers.find(u => u.id === trx.userId);
+        const user = users.find(u => u.id === trx.userId);
         const matchesSearch = trx.kode.toLowerCase().includes(searchQuery.toLowerCase()) ||
             user?.nama.toLowerCase().includes(searchQuery.toLowerCase());
         return matchesStatus && matchesSearch;
@@ -124,7 +125,7 @@ export default function TransaksiPage() {
                                 <TableEmpty message="Tidak ada transaksi" />
                             ) : (
                                 filteredTransactions.map(trx => {
-                                    const user = registeredUsers.find(u => u.id === trx.userId);
+                                    const user = users.find(u => u.id === trx.userId);
                                     return (
                                         <TableRow key={trx.id}>
                                             <TableCell>
@@ -176,7 +177,7 @@ export default function TransaksiPage() {
                         <div style={{ padding: '1rem', background: 'var(--bg-tertiary)', borderRadius: '0.75rem' }}>
                             <h4 style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.75rem' }}>INFORMASI MEMBER</h4>
                             {(() => {
-                                const user = registeredUsers.find(u => u.id === selectedTrx.userId);
+                                const user = users.find(u => u.id === selectedTrx.userId);
                                 return (
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.875rem' }}>
                                         <div><span style={{ color: 'var(--text-muted)' }}>Nama:</span> {user?.nama}</div>
@@ -207,10 +208,9 @@ export default function TransaksiPage() {
                         <div>
                             <h4 style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.75rem' }}>BARANG DISEWA</h4>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                {mockDetailTransaksi
-                                    .filter(d => d.transaksiId === selectedTrx.id)
+                                {getTransactionDetails(selectedTrx.id)
                                     .map(detail => {
-                                        const barang = mockBarang.find(b => b.id === detail.barangId);
+                                        const barang = barangList.find(b => b.id === detail.barangId);
                                         return (
                                             <div key={detail.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem', background: 'var(--bg-secondary)', borderRadius: '0.5rem' }}>
                                                 <div>

@@ -2,57 +2,82 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, StatusVerifikasi } from '@/types';
-import { mockUsers as initialUsers } from '@/lib/mock-data';
 
 interface UserContextType {
     users: User[];
-    updateUserStatus: (id: number, status: StatusVerifikasi) => void;
-    addUser: (user: User) => void;
+    isLoading: boolean;
+    updateUserStatus: (id: number, status: StatusVerifikasi) => Promise<boolean>;
+    refreshUsers: () => Promise<void>;
+    getUserById: (id: number) => User | undefined;
+    getUserByEmail: (email: string) => User | undefined;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export function UserProvider({ children }: { children: ReactNode }) {
     const [users, setUsers] = useState<User[]>([]);
-    const [isLoaded, setIsLoaded] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
 
-    // Load users from localStorage on mount
-    useEffect(() => {
-        const savedUsers = localStorage.getItem('rental_users');
-        if (savedUsers) {
-            try {
-                setUsers(JSON.parse(savedUsers));
-            } catch (e) {
-                console.error('Failed to parse users from localStorage');
-                setUsers(initialUsers);
+    // Fetch users from database API
+    const refreshUsers = async () => {
+        try {
+            setIsLoading(true);
+            const response = await fetch('/api/users');
+            const data = await response.json();
+            if (data.success) {
+                setUsers(data.users);
             }
-        } else {
-            setUsers(initialUsers);
+        } catch (error) {
+            console.error('Error fetching users:', error);
+        } finally {
+            setIsLoading(false);
         }
-        setIsLoaded(true);
-    }, []);
-
-    // Save users to localStorage whenever they change
-    useEffect(() => {
-        if (isLoaded) {
-            localStorage.setItem('rental_users', JSON.stringify(users));
-        }
-    }, [users, isLoaded]);
-
-    const updateUserStatus = (id: number, status: StatusVerifikasi) => {
-        setUsers(prev =>
-            prev.map(user =>
-                user.id === id ? { ...user, statusVerifikasi: status } : user
-            )
-        );
     };
 
-    const addUser = (user: User) => {
-        setUsers(prev => [...prev, user]);
+    // Load users on mount
+    useEffect(() => {
+        refreshUsers();
+    }, []);
+
+    // Update user status via API
+    const updateUserStatus = async (id: number, status: StatusVerifikasi): Promise<boolean> => {
+        try {
+            const response = await fetch('/api/admin/members', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, statusVerifikasi: status })
+            });
+            const result = await response.json();
+            if (result.success) {
+                await refreshUsers();
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Error updating user status:', error);
+            return false;
+        }
+    };
+
+    // Get user by ID
+    const getUserById = (id: number): User | undefined => {
+        return users.find(u => u.id === id);
+    };
+
+    // Get user by email
+    const getUserByEmail = (email: string): User | undefined => {
+        return users.find(u => u.email.toLowerCase() === email.toLowerCase());
     };
 
     return (
-        <UserContext.Provider value={{ users, updateUserStatus, addUser }}>
+        <UserContext.Provider value={{
+            users,
+            isLoading,
+            updateUserStatus,
+            refreshUsers,
+            getUserById,
+            getUserByEmail
+        }}>
             {children}
         </UserContext.Provider>
     );

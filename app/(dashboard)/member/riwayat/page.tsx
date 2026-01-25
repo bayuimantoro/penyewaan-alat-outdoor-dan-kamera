@@ -9,16 +9,18 @@ import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell, TableEmp
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { formatRupiah, formatDate } from '@/lib/utils';
-import { mockBarang, mockKategori } from '@/lib/mock-data';
+import { mockKategori } from '@/lib/mock-data';
 import { useTransactions } from '@/lib/transaction-context';
-import { useAuth } from '@/lib/auth-context';
+import { useSession } from '@/lib/session-context';
+import { useBarang } from '@/lib/barang-context';
 import { Transaksi } from '@/types';
 
 export default function RiwayatPage() {
     const router = useRouter();
     // Use transaction context for persistent state
     const { transactions, updateTransactionStatus, getTransactionDetails } = useTransactions();
-    const { currentUser } = useAuth();
+    const { currentUser } = useSession();
+    const { barang: barangList } = useBarang();
 
     // Filter transactions by current user
     const userTransactions = transactions.filter(t => t.userId === currentUser?.id);
@@ -123,7 +125,7 @@ export default function RiwayatPage() {
                                 userTransactions.map(trx => {
                                     const details = getTransactionDetails(trx.id);
                                     const barangNames = details
-                                        .map(d => mockBarang.find(b => b.id === d.barangId)?.nama)
+                                        .map(d => barangList.find(b => b.id === d.barangId)?.nama)
                                         .filter(Boolean)
                                         .join(', ');
 
@@ -149,7 +151,21 @@ export default function RiwayatPage() {
                                                 </div>
                                             </TableCell>
                                             <TableCell align="right">
-                                                <div style={{ fontWeight: 600 }}>{formatRupiah(trx.total)}</div>
+                                                <div style={{ fontWeight: 600 }}>
+                                                    {(() => {
+                                                        let displayTotal = trx.total;
+                                                        // If total is invalid (NaN or 0 when it shouldn't be), recalculate from details
+                                                        if (isNaN(Number(trx.total)) || (trx.total === 0 && details.length > 0)) {
+                                                            const calculatedTotal = details.reduce((sum, d) => {
+                                                                const price = d.hargaSewa || 0;
+                                                                return sum + (price * d.qty * trx.totalHari);
+                                                            }, 0);
+                                                            // Add service fee if applicable (10000)
+                                                            displayTotal = calculatedTotal > 0 ? calculatedTotal + 10000 : 0;
+                                                        }
+                                                        return formatRupiah(displayTotal);
+                                                    })()}
+                                                </div>
                                                 {trx.denda > 0 && (
                                                     <div style={{ fontSize: '0.75rem', color: 'var(--error)' }}>
                                                         +{formatRupiah(trx.denda)} denda
@@ -235,7 +251,7 @@ export default function RiwayatPage() {
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                                 {getTransactionDetails(selectedTrx.id)
                                     .map(detail => {
-                                        const barang = mockBarang.find(b => b.id === detail.barangId);
+                                        const barang = barangList.find(b => b.id === detail.barangId);
                                         const kategori = mockKategori.find(k => k.id === barang?.kategoriId);
                                         return (
                                             <div

@@ -5,14 +5,14 @@ import { Sidebar } from '@/components/ui/Sidebar';
 import { TransactionProvider } from '@/lib/transaction-context';
 import { UserProvider } from '@/lib/user-context';
 import { BarangProvider } from '@/lib/barang-context';
-import { useAuth } from '@/lib/auth-context';
+import { useSession } from '@/lib/session-context';
 
 export default function GudangLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
-    const { currentUser } = useAuth();
+    const { currentUser, isLoading } = useSession();
     const userName = currentUser?.nama || 'Gudang';
 
     return (

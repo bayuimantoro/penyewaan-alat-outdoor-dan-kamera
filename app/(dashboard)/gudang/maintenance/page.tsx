@@ -37,13 +37,17 @@ export default function MaintenancePage() {
         setCatatan('');
     };
 
-    const confirmUpdate = () => {
+    const confirmUpdate = async () => {
         if (!selectedBarang) return;
 
-        // Update status using BarangContext (persists to localStorage)
-        updateBarangStatus(selectedBarang.id, newStatus);
+        // Update status using BarangContext (persists to database via API)
+        const success = await updateBarangStatus(selectedBarang.id, newStatus);
 
-        alert(`Status barang ${selectedBarang.nama} berhasil diupdate ke "${newStatus}"!`);
+        if (success) {
+            alert(`Status barang ${selectedBarang.nama} berhasil diupdate ke "${newStatus}"!`);
+        } else {
+            alert('Gagal update status barang. Coba lagi.');
+        }
         setSelectedBarang(null);
         setCatatan('');
     };

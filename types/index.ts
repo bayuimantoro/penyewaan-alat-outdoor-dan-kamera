@@ -39,14 +39,16 @@ export interface Barang {
   id: number;
   kode: string;
   nama: string;
-  kategoriId: number;
-  kategori?: Kategori;
-  merk: string;
+  kategoriId?: number;
+  kategori?: string | Kategori;
+  merk?: string;
   deskripsi: string;
-  hargaSewaPerHari: number;
-  dendaPerHari: number;
+  hargaSewa?: number;       // From database API
+  hargaSewaPerHari?: number; // From mock data (legacy)
+  dendaPerHari?: number;
   stok: number;
-  foto: string[];
+  gambar?: string;          // From database API
+  foto?: string[];          // From mock data (legacy)
   status: StatusBarang;
 }
 

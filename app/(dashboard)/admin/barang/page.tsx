@@ -34,7 +34,7 @@ export default function DataBarangPage() {
         kategoriId: 1,
         merk: '',
         deskripsi: '',
-        hargaSewaPerHari: 0,
+        hargaSewa: 0,
         dendaPerHari: 0,
         stok: 0,
         status: 'tersedia' as StatusBarang,
@@ -52,11 +52,11 @@ export default function DataBarangPage() {
         setFormData({
             kode: barang.kode,
             nama: barang.nama,
-            kategoriId: barang.kategoriId,
-            merk: barang.merk,
+            kategoriId: barang.kategoriId || 1,
+            merk: barang.merk || '',
             deskripsi: barang.deskripsi,
-            hargaSewaPerHari: barang.hargaSewaPerHari,
-            dendaPerHari: barang.dendaPerHari,
+            hargaSewa: barang.hargaSewa || barang.hargaSewaPerHari || 0,
+            dendaPerHari: barang.dendaPerHari || 0,
             stok: barang.stok,
             status: barang.status,
         });
@@ -71,7 +71,7 @@ export default function DataBarangPage() {
             kategoriId: 1,
             merk: '',
             deskripsi: '',
-            hargaSewaPerHari: 0,
+            hargaSewa: 0,
             dendaPerHari: 0,
             stok: 1,
             status: 'tersedia',
@@ -211,7 +211,9 @@ export default function DataBarangPage() {
                                             </TableCell>
                                             <TableCell>{kategori?.nama}</TableCell>
                                             <TableCell align="right">
-                                                <span style={{ fontWeight: 600, color: 'var(--primary-400)' }}>{formatRupiah(barang.hargaSewaPerHari)}</span>
+                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                                    <span style={{ fontWeight: 600, color: 'var(--primary-400)' }}>{formatRupiah(barang.hargaSewa || barang.hargaSewaPerHari || 0)}</span>/hari
+                                                </div>
                                             </TableCell>
                                             <TableCell align="center">{barang.stok} unit</TableCell>
                                             <TableCell align="center">
@@ -292,8 +294,8 @@ export default function DataBarangPage() {
                         <Input
                             label="Harga Sewa/Hari"
                             type="number"
-                            value={formData.hargaSewaPerHari}
-                            onChange={(e) => setFormData({ ...formData, hargaSewaPerHari: parseInt(e.target.value) || 0 })}
+                            value={formData.hargaSewa}
+                            onChange={(e) => setFormData({ ...formData, hargaSewa: parseInt(e.target.value) || 0 })}
                         />
                         <Input
                             label="Denda/Hari"

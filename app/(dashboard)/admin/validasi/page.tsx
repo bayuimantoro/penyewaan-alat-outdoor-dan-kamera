@@ -1,13 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardTitle, CardContent } from '@/components/ui/Card';
 import { StatusBadge } from '@/components/ui/Badge';
 import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell, TableEmpty } from '@/components/ui/Table';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { formatDate } from '@/lib/utils';
-import { useAuth } from '@/lib/auth-context';
 
 // Type for displayed member
 interface DisplayMember {
@@ -21,46 +20,105 @@ interface DisplayMember {
 }
 
 export default function ValidasiMemberPage() {
-    const { registeredUsers, updateUserStatus, deleteUser } = useAuth();
+    const [members, setMembers] = useState<DisplayMember[]>([]);
     const [selectedMember, setSelectedMember] = useState<DisplayMember | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
 
-    // Filter only members from AuthContext
-    const members: DisplayMember[] = registeredUsers
-        .filter(u => u.role === 'member')
-        .map(u => ({
-            id: u.id,
-            nama: u.nama,
-            email: u.email,
-            noHp: u.noHp,
-            alamat: u.alamat,
-            statusVerifikasi: u.statusVerifikasi,
-            createdAt: u.createdAt,
-        }));
-
-    const handleApprove = (member: DisplayMember) => {
-        updateUserStatus(member.id, 'approved');
-        // Update selected member too if modal is open
-        if (selectedMember && selectedMember.id === member.id) {
-            setSelectedMember({ ...member, statusVerifikasi: 'approved' });
-        }
-        alert(`Member ${member.nama} berhasil di-approve! Sekarang bisa login.`);
-    };
-
-    const handleReject = (member: DisplayMember) => {
-        if (confirm(`Yakin ingin menolak member ${member.nama}?`)) {
-            updateUserStatus(member.id, 'rejected');
-            // Update selected member too if modal is open
-            if (selectedMember && selectedMember.id === member.id) {
-                setSelectedMember({ ...member, statusVerifikasi: 'rejected' });
+    // Fetch members from database
+    const fetchMembers = async () => {
+        try {
+            const response = await fetch('/api/admin/members');
+            const data = await response.json();
+            if (data.success) {
+                setMembers(data.members);
             }
-            alert(`Member ${member.nama} ditolak!`);
+        } catch (error) {
+            console.error('Error fetching members:', error);
+        } finally {
+            setIsLoading(false);
         }
     };
 
-    const handleDelete = (member: DisplayMember) => {
-        if (confirm(`Yakin ingin menghapus member ${member.nama}? Data user akan hilang permanen.`)) {
-            deleteUser(member.id);
-            alert(`Member ${member.nama} berhasil dihapus!`);
+    useEffect(() => {
+        fetchMembers();
+    }, []);
+
+    const handleApprove = async (member: DisplayMember) => {
+        try {
+            const response = await fetch('/api/admin/members', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: member.id, status: 'approved' })
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                // Update local state
+                setMembers(prev => prev.map(m =>
+                    m.id === member.id ? { ...m, statusVerifikasi: 'approved' } : m
+                ));
+                if (selectedMember && selectedMember.id === member.id) {
+                    setSelectedMember({ ...member, statusVerifikasi: 'approved' });
+                }
+                alert(`Member ${member.nama} berhasil di-approve! Sekarang bisa login.`);
+            } else {
+                alert(`Gagal approve: ${data.message}`);
+            }
+        } catch (error) {
+            console.error('Error approving member:', error);
+            alert('Terjadi kesalahan saat approve member');
+        }
+    };
+
+    const handleReject = async (member: DisplayMember) => {
+        if (!confirm(`Yakin ingin menolak member ${member.nama}?`)) return;
+
+        try {
+            const response = await fetch('/api/admin/members', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: member.id, status: 'rejected' })
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                setMembers(prev => prev.map(m =>
+                    m.id === member.id ? { ...m, statusVerifikasi: 'rejected' } : m
+                ));
+                if (selectedMember && selectedMember.id === member.id) {
+                    setSelectedMember({ ...member, statusVerifikasi: 'rejected' });
+                }
+                alert(`Member ${member.nama} ditolak!`);
+            } else {
+                alert(`Gagal reject: ${data.message}`);
+            }
+        } catch (error) {
+            console.error('Error rejecting member:', error);
+            alert('Terjadi kesalahan saat reject member');
+        }
+    };
+
+    const handleDelete = async (member: DisplayMember) => {
+        if (!confirm(`Yakin ingin menghapus member ${member.nama}? Data user akan hilang permanen.`)) return;
+
+        try {
+            const response = await fetch(`/api/admin/members?userId=${member.id}`, {
+                method: 'DELETE'
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                setMembers(prev => prev.filter(m => m.id !== member.id));
+                if (selectedMember && selectedMember.id === member.id) {
+                    setSelectedMember(null);
+                }
+                alert(`Member ${member.nama} berhasil dihapus!`);
+            } else {
+                alert(`Gagal hapus: ${data.message}`);
+            }
+        } catch (error) {
+            console.error('Error deleting member:', error);
+            alert('Terjadi kesalahan saat hapus member');
         }
     };
 
@@ -68,6 +126,17 @@ export default function ValidasiMemberPage() {
     const pendingCount = members.filter(m => m.statusVerifikasi === 'pending').length;
     const approvedCount = members.filter(m => m.statusVerifikasi === 'approved').length;
     const rejectedCount = members.filter(m => m.statusVerifikasi === 'rejected').length;
+
+    if (isLoading) {
+        return (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
+                <div style={{ textAlign: 'center' }}>
+                    <div className="spinner" style={{ width: '3rem', height: '3rem', border: '3px solid var(--bg-tertiary)', borderTop: '3px solid var(--primary-400)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 1rem' }}></div>
+                    <p>Memuat data member...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div>
@@ -123,7 +192,7 @@ export default function ValidasiMemberPage() {
                                             </div>
                                         </TableCell>
                                         <TableCell>{member.email}</TableCell>
-                                        <TableCell>{member.noHp}</TableCell>
+                                        <TableCell>{member.noHp || '-'}</TableCell>
                                         <TableCell>{formatDate(member.createdAt)}</TableCell>
                                         <TableCell align="center"><StatusBadge status={member.statusVerifikasi} /></TableCell>
                                         <TableCell align="center">
@@ -172,7 +241,7 @@ export default function ValidasiMemberPage() {
                             </div>
                             <div>
                                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>No. HP</div>
-                                <div>{selectedMember.noHp}</div>
+                                <div>{selectedMember.noHp || '-'}</div>
                             </div>
                             <div>
                                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Status</div>
@@ -181,7 +250,7 @@ export default function ValidasiMemberPage() {
                         </div>
                         <div>
                             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Alamat</div>
-                            <div>{selectedMember.alamat}</div>
+                            <div>{selectedMember.alamat || '-'}</div>
                         </div>
                         <div>
                             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Foto KTP</div>

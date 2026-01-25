@@ -249,14 +249,24 @@ export function Sidebar({ role, userName = 'User' }: SidebarProps) {
                         </div>
                     </div>
                 </div>
-                <Link
-                    href="/login"
+                <button
+                    onClick={async () => {
+                        await fetch('/api/auth/logout', { method: 'POST' });
+                        window.location.href = '/login';
+                    }}
                     className="nav-item"
-                    style={{ color: 'var(--error)' }}
+                    style={{
+                        color: 'var(--error)',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        width: '100%',
+                        textAlign: 'left'
+                    }}
                 >
                     <Icons.LogOut />
                     <span>Logout</span>
-                </Link>
+                </button>
             </div>
         </aside>
     );

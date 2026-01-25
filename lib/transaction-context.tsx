@@ -1,15 +1,16 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { Transaksi, DetailTransaksi } from '@/types';
-import { mockTransaksi as initialTransaksi, mockDetailTransaksi as initialDetails } from '@/lib/mock-data';
 
 interface TransactionContextType {
     transactions: Transaksi[];
     transactionDetails: DetailTransaksi[];
-    updateTransactionStatus: (id: number, status: Transaksi['status']) => void;
-    addTransaction: (transaction: Transaksi, details: DetailTransaksi[]) => void;
-    deleteTransaction: (id: number) => void;
+    isLoading: boolean;
+    refreshTransactions: () => Promise<void>;
+    updateTransactionStatus: (id: number, status: Transaksi['status'], denda?: number) => Promise<boolean>;
+    addTransaction: (transaction: Omit<Transaksi, 'id'>, details: Omit<DetailTransaksi, 'id' | 'transaksiId'>[]) => Promise<number | null>;
+    deleteTransaction: (id: number) => Promise<boolean>;
     getTransactionDetails: (transaksiId: number) => DetailTransaksi[];
 }
 
@@ -18,91 +19,119 @@ const TransactionContext = createContext<TransactionContextType | undefined>(und
 export function TransactionProvider({ children }: { children: ReactNode }) {
     const [transactions, setTransactions] = useState<Transaksi[]>([]);
     const [transactionDetails, setTransactionDetails] = useState<DetailTransaksi[]>([]);
-    const [isLoaded, setIsLoaded] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
 
-    // Load transactions from localStorage on mount
-    useEffect(() => {
-        const savedTransactions = localStorage.getItem('rental_transactions');
-        const savedDetails = localStorage.getItem('rental_transaction_details');
-
-        if (savedTransactions) {
-            try {
-                setTransactions(JSON.parse(savedTransactions));
-            } catch (e) {
-                console.error('Failed to parse transactions from localStorage');
-                setTransactions(initialTransaksi);
+    // Fetch transactions from API
+    const refreshTransactions = useCallback(async (silent = false) => {
+        try {
+            if (!silent) setIsLoading(true);
+            const response = await fetch('/api/transaksi');
+            const data = await response.json();
+            if (data.success) {
+                setTransactions(data.transaksi);
+                setTransactionDetails(data.detailTransaksi);
             }
-        } else {
-            setTransactions(initialTransaksi);
+        } catch (error) {
+            console.error('Error fetching transactions:', error);
+        } finally {
+            if (!silent) setIsLoading(false);
         }
-
-        if (savedDetails) {
-            try {
-                setTransactionDetails(JSON.parse(savedDetails));
-            } catch (e) {
-                console.error('Failed to parse transaction details from localStorage');
-                setTransactionDetails(initialDetails);
-            }
-        } else {
-            setTransactionDetails(initialDetails);
-        }
-
-        setIsLoaded(true);
     }, []);
+
+    // Load on mount and poll every 15 seconds (safe interval)
+    useEffect(() => {
+        refreshTransactions();
+
+        const intervalId = setInterval(() => {
+            refreshTransactions(true); // Silent refresh
+        }, 15000);
+
+        return () => clearInterval(intervalId);
+    }, [refreshTransactions]);
 
     // Auto-update: sedang_disewa → menunggu_pengembalian when rental period ends
     useEffect(() => {
-        if (!isLoaded) return;
+        if (isLoading || transactions.length === 0) return;
 
         const today = new Date();
-        today.setHours(0, 0, 0, 0); // Start of today
+        today.setHours(0, 0, 0, 0);
 
-        let hasUpdates = false;
-        const updatedTransactions = transactions.map(trx => {
-            // Only check transactions that are "sedang_disewa"
+        transactions.forEach(async trx => {
             if (trx.status === 'sedang_disewa') {
                 const endDate = new Date(trx.tanggalSelesai);
-                endDate.setHours(23, 59, 59, 999); // End of the rental day
+                endDate.setHours(23, 59, 59, 999);
 
-                // If rental period has ended, change to menunggu_pengembalian
                 if (today > endDate) {
-                    hasUpdates = true;
-                    return { ...trx, status: 'menunggu_pengembalian' as const };
+                    await updateTransactionStatus(trx.id, 'menunggu_pengembalian');
                 }
             }
-            return trx;
         });
+    }, [isLoading, transactions]);
 
-        // Only update state if there were changes
-        if (hasUpdates) {
-            setTransactions(updatedTransactions);
+    const updateTransactionStatus = async (id: number, status: Transaksi['status'], denda?: number): Promise<boolean> => {
+        try {
+            const response = await fetch('/api/transaksi', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, status, denda })
+            });
+            const data = await response.json();
+            if (data.success) {
+                setTransactions(prev =>
+                    prev.map(trx =>
+                        trx.id === id ? { ...trx, status, denda: denda ?? trx.denda } : trx
+                    )
+                );
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Error updating transaction status:', error);
+            return false;
         }
-    }, [isLoaded, transactions]);
-
-    // Save transactions to localStorage whenever they change
-    useEffect(() => {
-        if (isLoaded) {
-            localStorage.setItem('rental_transactions', JSON.stringify(transactions));
-            localStorage.setItem('rental_transaction_details', JSON.stringify(transactionDetails));
-        }
-    }, [transactions, transactionDetails, isLoaded]);
-
-    const updateTransactionStatus = (id: number, status: Transaksi['status']) => {
-        setTransactions(prev =>
-            prev.map(trx =>
-                trx.id === id ? { ...trx, status } : trx
-            )
-        );
     };
 
-    const addTransaction = (transaction: Transaksi, details: DetailTransaksi[]) => {
-        setTransactions(prev => [transaction, ...prev]);
-        setTransactionDetails(prev => [...details, ...prev]);
+    const addTransaction = async (
+        transaction: Omit<Transaksi, 'id'>,
+        details: Omit<DetailTransaksi, 'id' | 'transaksiId'>[]
+    ): Promise<number | null> => {
+        try {
+            const response = await fetch('/api/transaksi', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ...transaction,
+                    details
+                })
+            });
+            const data = await response.json();
+            if (data.success) {
+                await refreshTransactions();
+                return data.transaksiId;
+            }
+            return null;
+        } catch (error) {
+            console.error('Error adding transaction:', error);
+            return null;
+        }
     };
 
-    const deleteTransaction = (id: number) => {
-        setTransactions(prev => prev.filter(t => t.id !== id));
-        setTransactionDetails(prev => prev.filter(d => d.transaksiId !== id));
+    const deleteTransaction = async (id: number): Promise<boolean> => {
+        try {
+            const response = await fetch(`/api/transaksi?id=${id}`, {
+                method: 'DELETE'
+            });
+            const data = await response.json();
+            if (data.success) {
+                setTransactions(prev => prev.filter(t => t.id !== id));
+                setTransactionDetails(prev => prev.filter(d => d.transaksiId !== id));
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Error deleting transaction:', error);
+            return false;
+        }
     };
 
     const getTransactionDetails = (transaksiId: number): DetailTransaksi[] => {
@@ -113,6 +142,8 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
         <TransactionContext.Provider value={{
             transactions,
             transactionDetails,
+            isLoading,
+            refreshTransactions,
             updateTransactionStatus,
             addTransaction,
             deleteTransaction,

@@ -1,116 +1,129 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { Promo } from '@/types';
-
-// Initial promo data
-const initialPromos: Promo[] = [
-    {
-        id: 1,
-        kode: 'NEWMEMBER',
-        nama: 'Diskon Member Baru',
-        deskripsi: 'Diskon 10% untuk member baru',
-        tipeDiskon: 'persentase',
-        nilaiDiskon: 10,
-        minTransaksi: 100000,
-        maxDiskon: 50000,
-        tanggalMulai: '2026-01-01',
-        tanggalSelesai: '2026-03-31',
-        status: 'aktif',
-        createdAt: '2026-01-01T00:00:00Z',
-    },
-    {
-        id: 2,
-        kode: 'WEEKEND20',
-        nama: 'Weekend Special',
-        deskripsi: 'Diskon 20% untuk sewa weekend',
-        tipeDiskon: 'persentase',
-        nilaiDiskon: 20,
-        minTransaksi: 200000,
-        maxDiskon: 100000,
-        tanggalMulai: '2026-01-01',
-        tanggalSelesai: '2026-12-31',
-        status: 'aktif',
-        createdAt: '2026-01-01T00:00:00Z',
-    },
-    {
-        id: 3,
-        kode: 'HEMAT50K',
-        nama: 'Potongan 50 Ribu',
-        deskripsi: 'Potongan langsung Rp 50.000',
-        tipeDiskon: 'nominal',
-        nilaiDiskon: 50000,
-        minTransaksi: 300000,
-        tanggalMulai: '2026-01-01',
-        tanggalSelesai: '2026-06-30',
-        status: 'nonaktif',
-        createdAt: '2026-01-01T00:00:00Z',
-    },
-];
 
 interface PromoContextType {
     promos: Promo[];
-    addPromo: (promo: Promo) => void;
-    updatePromo: (id: number, data: Partial<Promo>) => void;
-    togglePromoStatus: (id: number) => void;
-    deletePromo: (id: number) => void;
-    getPromoByKode: (kode: string) => Promo | undefined;
+    isLoading: boolean;
+    refreshPromos: () => Promise<void>;
+    addPromo: (promo: Omit<Promo, 'id' | 'createdAt'>) => Promise<boolean>;
+    updatePromo: (id: number, data: Partial<Promo>) => Promise<boolean>;
+    togglePromoStatus: (id: number) => Promise<boolean>;
+    deletePromo: (id: number) => Promise<boolean>;
+    getPromoByKode: (kode: string) => Promise<Promo | null>;
 }
 
 const PromoContext = createContext<PromoContextType | undefined>(undefined);
 
 export function PromoProvider({ children }: { children: ReactNode }) {
     const [promos, setPromos] = useState<Promo[]>([]);
-    const [isLoaded, setIsLoaded] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
 
-    // Load from localStorage on mount
-    useEffect(() => {
-        const saved = localStorage.getItem('rental_promos');
-        if (saved) {
-            try {
-                setPromos(JSON.parse(saved));
-            } catch (e) {
-                console.error('Failed to parse promos from localStorage');
-                setPromos(initialPromos);
+    // Fetch promos from API
+    const refreshPromos = useCallback(async () => {
+        try {
+            setIsLoading(true);
+            const response = await fetch('/api/promo');
+            const data = await response.json();
+            if (data.success) {
+                setPromos(data.promos);
             }
-        } else {
-            setPromos(initialPromos);
+        } catch (error) {
+            console.error('Error fetching promos:', error);
+        } finally {
+            setIsLoading(false);
         }
-        setIsLoaded(true);
     }, []);
 
-    // Save to localStorage whenever data changes
+    // Load on mount
     useEffect(() => {
-        if (isLoaded) {
-            localStorage.setItem('rental_promos', JSON.stringify(promos));
+        refreshPromos();
+    }, [refreshPromos]);
+
+    const addPromo = async (promo: Omit<Promo, 'id' | 'createdAt'>): Promise<boolean> => {
+        try {
+            const response = await fetch('/api/promo', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(promo)
+            });
+            const data = await response.json();
+            if (data.success) {
+                await refreshPromos();
+                return true;
+            }
+            alert(data.message || 'Gagal menambah promo');
+            return false;
+        } catch (error) {
+            console.error('Error adding promo:', error);
+            return false;
         }
-    }, [promos, isLoaded]);
-
-    const addPromo = (promo: Promo) => {
-        setPromos(prev => [promo, ...prev]);
     };
 
-    const updatePromo = (id: number, data: Partial<Promo>) => {
-        setPromos(prev => prev.map(p => p.id === id ? { ...p, ...data } : p));
+    const updatePromo = async (id: number, data: Partial<Promo>): Promise<boolean> => {
+        try {
+            const response = await fetch('/api/promo', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, ...data })
+            });
+            const result = await response.json();
+            if (result.success) {
+                await refreshPromos();
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Error updating promo:', error);
+            return false;
+        }
     };
 
-    const togglePromoStatus = (id: number) => {
-        setPromos(prev => prev.map(p =>
-            p.id === id ? { ...p, status: p.status === 'aktif' ? 'nonaktif' : 'aktif' } : p
-        ));
+    const togglePromoStatus = async (id: number): Promise<boolean> => {
+        const promo = promos.find(p => p.id === id);
+        if (!promo) return false;
+
+        const newStatus = promo.status === 'aktif' ? 'nonaktif' : 'aktif';
+        return updatePromo(id, { status: newStatus });
     };
 
-    const deletePromo = (id: number) => {
-        setPromos(prev => prev.filter(p => p.id !== id));
+    const deletePromo = async (id: number): Promise<boolean> => {
+        try {
+            const response = await fetch(`/api/promo?id=${id}`, {
+                method: 'DELETE'
+            });
+            const data = await response.json();
+            if (data.success) {
+                setPromos(prev => prev.filter(p => p.id !== id));
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Error deleting promo:', error);
+            return false;
+        }
     };
 
-    const getPromoByKode = (kode: string): Promo | undefined => {
-        return promos.find(p => p.kode.toLowerCase() === kode.toLowerCase() && p.status === 'aktif');
+    const getPromoByKode = async (kode: string): Promise<Promo | null> => {
+        try {
+            const response = await fetch(`/api/promo?kode=${kode.toUpperCase()}`);
+            const data = await response.json();
+            if (data.success) {
+                return data.promo;
+            }
+            return null;
+        } catch (error) {
+            console.error('Error getting promo by kode:', error);
+            return null;
+        }
     };
 
     return (
         <PromoContext.Provider value={{
             promos,
+            isLoading,
+            refreshPromos,
             addPromo,
             updatePromo,
             togglePromoStatus,

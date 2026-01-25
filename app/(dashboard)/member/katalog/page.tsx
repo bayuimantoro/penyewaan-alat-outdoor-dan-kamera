@@ -99,7 +99,7 @@ export default function KatalogPage() {
                                     {barang.deskripsi.substring(0, 60)}...
                                 </p>
                                 <div className="product-price">
-                                    {formatRupiah(barang.hargaSewaPerHari)} <span>/ hari</span>
+                                    {formatRupiah(barang.hargaSewa || barang.hargaSewaPerHari || 0)} <span>/ hari</span>
                                 </div>
                             </div>
 

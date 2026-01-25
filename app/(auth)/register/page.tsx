@@ -6,11 +6,9 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { FileUpload } from '@/components/ui/FileUpload';
-import { useAuth } from '@/lib/auth-context';
 
 export default function RegisterPage() {
     const router = useRouter();
-    const { registerUser } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
     const [step, setStep] = useState(1);
     const [formData, setFormData] = useState({
@@ -60,17 +58,21 @@ export default function RegisterPage() {
 
         setIsLoading(true);
 
-        // Register user via AuthContext
-        setTimeout(() => {
-            const result = registerUser({
-                nama: formData.nama,
-                email: formData.email,
-                password: formData.password,
-                noHp: formData.noHp,
-                alamat: formData.alamat,
+        try {
+            // Register user via API endpoint
+            const response = await fetch('/api/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    nama: formData.nama,
+                    email: formData.email,
+                    password: formData.password,
+                    noHp: formData.noHp,
+                    alamat: formData.alamat,
+                })
             });
 
-            setIsLoading(false);
+            const result = await response.json();
 
             if (result.success) {
                 alert(result.message);
@@ -79,7 +81,13 @@ export default function RegisterPage() {
                 setErrors({ email: result.message });
                 setStep(1);
             }
-        }, 1000);
+        } catch (error) {
+            console.error('Registration error:', error);
+            setErrors({ email: 'Terjadi kesalahan saat mendaftar' });
+            setStep(1);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
