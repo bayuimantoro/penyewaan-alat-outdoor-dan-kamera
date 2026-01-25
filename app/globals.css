@@ -978,3 +978,185 @@ select.input {
   color: var(--text-muted);
   font-size: 0.875rem;
 }
+
+/* ============================================
+   MOBILE RESPONSIVE STYLES
+   ============================================ */
+
+/* Tablets and below */
+@media (max-width: 1024px) {
+  .dashboard-layout {
+    grid-template-columns: 1fr;
+  }
+  
+  .sidebar {
+    position: fixed;
+    left: -280px;
+    z-index: 1000;
+    transition: left 0.3s ease;
+  }
+  
+  .sidebar.open {
+    left: 0;
+  }
+  
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Mobile phones */
+@media (max-width: 768px) {
+  /* Typography */
+  h1 { font-size: 1.75rem; }
+  h2 { font-size: 1.5rem; }
+  h3 { font-size: 1.25rem; }
+  h4 { font-size: 1.1rem; }
+  
+  /* Page header */
+  .page-header {
+    padding: 1rem 0;
+  }
+  
+  .page-title {
+    font-size: 1.5rem !important;
+  }
+  
+  .page-subtitle {
+    font-size: 0.875rem;
+  }
+  
+  /* Stats grid - 2 columns on mobile */
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+  
+  .stat-card {
+    padding: 1rem;
+  }
+  
+  .stat-value {
+    font-size: 1.25rem;
+  }
+  
+  .stat-label {
+    font-size: 0.75rem;
+  }
+  
+  /* Tables - horizontal scroll */
+  .table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  table {
+    min-width: 600px;
+  }
+  
+  /* Cards */
+  .card {
+    padding: 1rem;
+  }
+  
+  /* Buttons */
+  .btn, button {
+    min-height: 44px; /* Touch-friendly */
+    padding: 0.75rem 1rem;
+  }
+  
+  /* Forms */
+  .form-input, input, select, textarea {
+    min-height: 44px;
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+  
+  /* Modal */
+  .modal-content {
+    width: 95%;
+    max-width: none;
+    margin: 1rem;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  
+  /* Landing page hero */
+  .hero-title {
+    font-size: 1.75rem !important;
+    line-height: 1.3;
+    word-wrap: break-word;
+  }
+  
+  .hero-subtitle {
+    font-size: 0.9rem;
+    padding: 0 1rem;
+  }
+  
+  /* Landing page buttons */
+  .hero-buttons {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .hero-buttons button,
+  .hero-buttons a {
+    width: 100%;
+  }
+  
+  /* Sidebar for mobile */
+  .sidebar {
+    width: 100%;
+    max-width: 280px;
+  }
+  
+  /* Main content padding */
+  .main-content {
+    padding: 1rem;
+  }
+  
+  /* Dashboard grids */
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Small phones */
+@media (max-width: 480px) {
+  h1 { font-size: 1.5rem; }
+  
+  .page-title {
+    font-size: 1.25rem !important;
+  }
+  
+  /* Stats - still 2 columns but smaller */
+  .stats-grid {
+    gap: 0.5rem;
+  }
+  
+  .stat-card {
+    padding: 0.75rem;
+  }
+  
+  .stat-value {
+    font-size: 1.1rem;
+  }
+  
+  .stat-icon {
+    width: 36px;
+    height: 36px;
+  }
+  
+  /* Cards tighter */
+  .card {
+    padding: 0.875rem;
+  }
+  
+  /* Navbar */
+  .navbar {
+    padding: 0.5rem 1rem;
+  }
+  
+  .navbar-brand {
+    font-size: 1rem;
+  }
+}

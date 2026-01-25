@@ -32,16 +32,16 @@ export async function POST(request: NextRequest) {
         // Hash password with bcrypt (salt rounds = 10)
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Insert new user with hashed password
+        // Insert new user with hashed password - auto approved
         const [result] = await pool.query(
             `INSERT INTO users (nama, email, password, no_hp, alamat, role, status_verifikasi) 
-             VALUES (?, ?, ?, ?, ?, 'member', 'pending')`,
+             VALUES (?, ?, ?, ?, ?, 'member', 'approved')`,
             [nama, email.toLowerCase(), hashedPassword, noHp || null, alamat || null]
         );
 
         return NextResponse.json({
             success: true,
-            message: 'Registrasi berhasil! Silakan tunggu verifikasi admin untuk dapat login.'
+            message: 'Registrasi berhasil! Silakan login dengan email dan password Anda.'
         });
 
     } catch (error: any) {

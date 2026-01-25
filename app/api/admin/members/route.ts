@@ -53,7 +53,9 @@ export async function GET() {
 export async function PUT(request: NextRequest) {
     try {
         const body = await request.json();
-        const { userId, status } = body;
+        // Accept both parameter formats for compatibility
+        const userId = body.userId || body.id;
+        const status = body.status || body.statusVerifikasi;
 
         // Validate required fields
         if (!userId || !status) {

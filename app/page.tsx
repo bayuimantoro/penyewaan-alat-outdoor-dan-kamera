@@ -53,7 +53,7 @@ export default function HomePage() {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          padding: '1.5rem 4rem',
+          padding: 'clamp(1rem, 3vw, 1.5rem) clamp(1rem, 4vw, 4rem)',
           position: 'relative',
           zIndex: 10,
         }}
@@ -95,7 +95,7 @@ export default function HomePage() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: '0 4rem',
+          padding: 'clamp(1rem, 4vw, 4rem)',
           position: 'relative',
           zIndex: 10,
         }}
@@ -103,10 +103,11 @@ export default function HomePage() {
         <div style={{ maxWidth: '800px', textAlign: 'center' }}>
           <h1
             style={{
-              fontSize: '4rem',
+              fontSize: 'clamp(1.75rem, 6vw, 4rem)',
               fontWeight: 800,
-              lineHeight: 1.1,
+              lineHeight: 1.2,
               marginBottom: '1.5rem',
+              wordWrap: 'break-word',
             }}
           >
             Sewa Alat{' '}
@@ -115,16 +116,17 @@ export default function HomePage() {
           </h1>
           <p
             style={{
-              fontSize: '1.25rem',
+              fontSize: 'clamp(0.9rem, 2vw, 1.25rem)',
               color: 'var(--text-secondary)',
-              marginBottom: '2.5rem',
+              marginBottom: '2rem',
               lineHeight: 1.6,
+              padding: '0 1rem',
             }}
           >
             Platform penyewaan alat outdoor dan kamera terlengkap.
             Booking online, ambil di lokasi, nikmati petualanganmu!
           </p>
-          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
             <Link href="/register">
               <Button size="lg" style={{ padding: '1rem 2.5rem' }}>
                 Mulai Sekarang
@@ -145,10 +147,11 @@ export default function HomePage() {
           <div
             style={{
               display: 'flex',
+              flexWrap: 'wrap',
               justifyContent: 'center',
-              gap: '4rem',
-              marginTop: '4rem',
-              padding: '2rem',
+              gap: 'clamp(1.5rem, 4vw, 4rem)',
+              marginTop: 'clamp(2rem, 4vw, 4rem)',
+              padding: 'clamp(1rem, 2vw, 2rem)',
               background: 'rgba(30, 30, 50, 0.5)',
               backdropFilter: 'blur(10px)',
               borderRadius: '1rem',
@@ -175,15 +178,15 @@ export default function HomePage() {
       </main>
 
       {/* Features */}
-      <section style={{ padding: '4rem', position: 'relative', zIndex: 10 }}>
-        <h2 style={{ textAlign: 'center', fontSize: '2rem', fontWeight: 700, marginBottom: '3rem' }}>
+      <section style={{ padding: 'clamp(2rem, 4vw, 4rem)', position: 'relative', zIndex: 10 }}>
+        <h2 style={{ textAlign: 'center', fontSize: 'clamp(1.5rem, 4vw, 2rem)', fontWeight: 700, marginBottom: '2rem' }}>
           Kenapa Pilih <span className="gradient-text">RentalGear</span>?
         </h2>
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: '2rem',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: 'clamp(1rem, 2vw, 2rem)',
             maxWidth: '1000px',
             margin: '0 auto',
           }}
@@ -225,10 +228,12 @@ export default function HomePage() {
       {/* Footer */}
       <footer
         style={{
-          padding: '2rem 4rem',
+          padding: 'clamp(1rem, 2vw, 2rem) clamp(1rem, 4vw, 4rem)',
           borderTop: '1px solid var(--border-color)',
           display: 'flex',
-          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          justifyContent: 'center',
+          gap: '1rem',
           alignItems: 'center',
           position: 'relative',
           zIndex: 10,
