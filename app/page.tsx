@@ -2,14 +2,29 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
-import { mockBarang, mockUsers, mockTransaksi } from '@/lib/mock-data';
-
-// Calculate real stats from mock data
-const alatTersedia = mockBarang.filter(b => b.status === 'tersedia').length;
-const memberAktif = mockUsers.filter(u => u.role === 'member' && u.statusVerifikasi === 'approved').length;
-const transaksiSukses = mockTransaksi.filter(t => t.status === 'selesai').length;
+import { useState, useEffect } from 'react';
 
 export default function HomePage() {
+  const [stats, setStats] = useState({
+    alatTersedia: 0,
+    memberAktif: 0,
+    transaksiSukses: 0
+  });
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const response = await fetch('/api/stats/public');
+        const data = await response.json();
+        if (data.success) {
+          setStats(data.stats);
+        }
+      } catch (error) {
+        console.error('Failed to fetch stats:', error);
+      }
+    };
+    fetchStats();
+  }, []);
   return (
     <div
       style={{
@@ -159,9 +174,9 @@ export default function HomePage() {
             }}
           >
             {[
-              { value: alatTersedia, label: 'Alat Tersedia' },
-              { value: memberAktif, label: 'Member Aktif' },
-              { value: transaksiSukses, label: 'Transaksi Sukses' },
+              { value: stats.alatTersedia, label: 'Alat Tersedia' },
+              { value: stats.memberAktif, label: 'Member Aktif' },
+              { value: stats.transaksiSukses, label: 'Transaksi Sukses' },
               { value: '4.9', label: 'Rating' },
             ].map((stat, idx) => (
               <div key={idx} style={{ textAlign: 'center' }}>
