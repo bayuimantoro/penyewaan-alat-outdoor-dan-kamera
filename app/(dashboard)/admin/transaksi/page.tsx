@@ -126,14 +126,30 @@ export default function TransaksiPage() {
                             ) : (
                                 filteredTransactions.map(trx => {
                                     const user = users.find(u => u.id === trx.userId);
+                                    const details = getTransactionDetails(trx.id);
+
+                                    // Use stored subtotal from details
+                                    let calculatedSubtotal = 0;
+                                    if (details.length > 0) {
+                                        calculatedSubtotal = details.reduce((sum: number, d) => {
+                                            return sum + Number(d.subtotal || 0);
+                                        }, 0);
+                                    } else if (trx.subtotal && Number(trx.subtotal) > 0) {
+                                        calculatedSubtotal = Number(trx.subtotal);
+                                    } else if (trx.diskon && Number(trx.diskon) > 0) {
+                                        calculatedSubtotal = Number(trx.diskon) * 10;
+                                    }
+                                    const biayaLayanan = calculatedSubtotal > 0 ? 10000 : 0;
+                                    const displayTotal = calculatedSubtotal + biayaLayanan - Number(trx.diskon || 0);
+
                                     return (
                                         <TableRow key={trx.id}>
                                             <TableCell>
                                                 <span style={{ fontWeight: 600, color: 'var(--primary-400)' }}>{trx.kode}</span>
                                             </TableCell>
                                             <TableCell>
-                                                <div>{user?.nama}</div>
-                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{user?.noHp}</div>
+                                                <div>{user?.nama || '-'}</div>
+                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{user?.noHp || '-'}</div>
                                             </TableCell>
                                             <TableCell>
                                                 <div>{formatDate(trx.tanggalMulai)}</div>
@@ -141,7 +157,7 @@ export default function TransaksiPage() {
                                             </TableCell>
                                             <TableCell>{trx.totalHari} hari</TableCell>
                                             <TableCell align="right">
-                                                <div style={{ fontWeight: 600 }}>{formatRupiah(trx.total)}</div>
+                                                <div style={{ fontWeight: 600 }}>{formatRupiah(displayTotal)}</div>
                                                 {trx.denda > 0 && (
                                                     <div style={{ fontSize: '0.75rem', color: 'var(--error)' }}>+{formatRupiah(trx.denda)} denda</div>
                                                 )}
@@ -225,25 +241,55 @@ export default function TransaksiPage() {
                         </div>
 
                         {/* Total */}
-                        <div style={{ padding: '1rem', background: 'var(--bg-tertiary)', borderRadius: '0.75rem' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                                <span>Subtotal</span><span>{formatRupiah(selectedTrx.subtotal)}</span>
-                            </div>
-                            {selectedTrx.diskon > 0 && (
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', color: 'var(--success)' }}>
-                                    <span>Diskon</span><span>-{formatRupiah(selectedTrx.diskon)}</span>
+                        {(() => {
+                            const modalDetails = getTransactionDetails(selectedTrx.id);
+
+                            // Use stored subtotal from details
+                            let displaySubtotal = 0;
+                            if (modalDetails.length > 0) {
+                                displaySubtotal = modalDetails.reduce((sum: number, d) => {
+                                    return sum + Number(d.subtotal || 0);
+                                }, 0);
+                            } else if (selectedTrx.subtotal && Number(selectedTrx.subtotal) > 0) {
+                                displaySubtotal = Number(selectedTrx.subtotal);
+                            } else if (selectedTrx.diskon && Number(selectedTrx.diskon) > 0) {
+                                displaySubtotal = Number(selectedTrx.diskon) * 10;
+                            }
+
+                            // ALWAYS calculate total from components
+                            const biayaLayanan = displaySubtotal > 0 ? 10000 : 0;
+                            const diskon = Number(selectedTrx.diskon || 0);
+                            const displayTotal = displaySubtotal + biayaLayanan - diskon;
+
+                            const showBiayaLayanan = displaySubtotal > 0;
+
+                            return (
+                                <div style={{ padding: '1rem', background: 'var(--bg-tertiary)', borderRadius: '0.75rem' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                                        <span>Subtotal</span><span>{formatRupiah(displaySubtotal)}</span>
+                                    </div>
+                                    {showBiayaLayanan && (
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>
+                                            <span>Biaya Layanan</span><span>{formatRupiah(10000)}</span>
+                                        </div>
+                                    )}
+                                    {selectedTrx.diskon > 0 && (
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', color: 'var(--success)' }}>
+                                            <span>Diskon</span><span>-{formatRupiah(selectedTrx.diskon)}</span>
+                                        </div>
+                                    )}
+                                    {selectedTrx.denda > 0 && (
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', color: 'var(--error)' }}>
+                                            <span>Denda</span><span>+{formatRupiah(selectedTrx.denda)}</span>
+                                        </div>
+                                    )}
+                                    <div style={{ height: '1px', background: 'var(--border-color)', margin: '0.5rem 0' }} />
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '1.125rem' }}>
+                                        <span>Total</span><span className="gradient-text">{formatRupiah(displayTotal + Number(selectedTrx.denda || 0))}</span>
+                                    </div>
                                 </div>
-                            )}
-                            {selectedTrx.denda > 0 && (
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', color: 'var(--error)' }}>
-                                    <span>Denda</span><span>+{formatRupiah(selectedTrx.denda)}</span>
-                                </div>
-                            )}
-                            <div style={{ height: '1px', background: 'var(--border-color)', margin: '0.5rem 0' }} />
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '1.125rem' }}>
-                                <span>Total</span><span className="gradient-text">{formatRupiah(selectedTrx.total + selectedTrx.denda)}</span>
-                            </div>
-                        </div>
+                            );
+                        })()}
 
                         {/* Status Update */}
                         <div>

@@ -11,6 +11,7 @@ import { useCart } from '@/lib/cart-context';
 import { useTransactions } from '@/lib/transaction-context';
 import { useSession } from '@/lib/session-context';
 import { useBarang } from '@/lib/barang-context';
+import { usePromos } from '@/lib/promo-context';
 import { Transaksi } from '@/types';
 
 export default function CheckoutPage() {
@@ -19,6 +20,7 @@ export default function CheckoutPage() {
     const { addTransaction, transactions } = useTransactions();
     const { currentUser } = useSession();
     const { processCheckout } = useBarang();
+    const { getApplicablePromo } = usePromos();
     const [isProcessing, setIsProcessing] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
     const [transactionCode, setTransactionCode] = useState('');
@@ -41,7 +43,13 @@ export default function CheckoutPage() {
 
     const subtotal = cartItems.reduce((sum, item) => sum + calculateItemSubtotal(item), 0);
     const biayaLayanan = cartItems.length > 0 ? 10000 : 0;
-    const total = subtotal + biayaLayanan;
+
+    // Auto-apply discount based on subtotal
+    const applicablePromo = getApplicablePromo(subtotal);
+    const diskon = applicablePromo ? applicablePromo.discountAmount : 0;
+    const promoInfo = applicablePromo ? applicablePromo.promo : null;
+
+    const total = subtotal + biayaLayanan - diskon;
 
     // Get first item dates for display
     const firstItem = cartItems[0];
@@ -75,7 +83,8 @@ export default function CheckoutPage() {
                 totalHari: totalDays,
                 status: 'menunggu_pembayaran' as const,
                 subtotal: subtotal,
-                diskon: 0,
+                diskon: diskon,
+                promoId: promoInfo?.id || null,
                 denda: 0,
                 total: total,
                 createdAt: new Date().toISOString(),
@@ -324,6 +333,25 @@ export default function CheckoutPage() {
                                     <span style={{ color: 'var(--text-muted)' }}>Biaya Layanan</span>
                                     <span>{formatRupiah(biayaLayanan)}</span>
                                 </div>
+                                {diskon > 0 && promoInfo && (
+                                    <div style={{
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        fontSize: '0.875rem',
+                                        padding: '0.5rem 0.75rem',
+                                        background: 'rgba(34, 197, 94, 0.1)',
+                                        borderRadius: '0.5rem',
+                                        border: '1px solid rgba(34, 197, 94, 0.2)'
+                                    }}>
+                                        <span style={{ color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                            🎉 {promoInfo.nama}
+                                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                                ({promoInfo.tipeDiskon === 'persentase' ? `${promoInfo.nilaiDiskon}%` : formatRupiah(promoInfo.nilaiDiskon)})
+                                            </span>
+                                        </span>
+                                        <span style={{ color: 'var(--success)', fontWeight: 600 }}>-{formatRupiah(diskon)}</span>
+                                    </div>
+                                )}
                                 <div style={{ height: '1px', background: 'var(--border-color)', margin: '0.5rem 0' }} />
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '1.25rem' }}>
                                     <span>Total Bayar</span>

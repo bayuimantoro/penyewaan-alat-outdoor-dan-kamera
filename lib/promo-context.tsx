@@ -12,6 +12,7 @@ interface PromoContextType {
     togglePromoStatus: (id: number) => Promise<boolean>;
     deletePromo: (id: number) => Promise<boolean>;
     getPromoByKode: (kode: string) => Promise<Promo | null>;
+    getApplicablePromo: (subtotal: number) => { promo: Promo; discountAmount: number } | null;
 }
 
 const PromoContext = createContext<PromoContextType | undefined>(undefined);
@@ -119,6 +120,63 @@ export function PromoProvider({ children }: { children: ReactNode }) {
         }
     };
 
+    // Get applicable promo based on subtotal (auto-apply)
+    const getApplicablePromo = (subtotal: number): { promo: Promo; discountAmount: number } | null => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // Find all valid promos for this subtotal
+        const validPromos = promos.filter(p => {
+            // Must be active
+            if (p.status !== 'aktif') return false;
+
+            // Check date range
+            const startDate = new Date(p.tanggalMulai);
+            const endDate = new Date(p.tanggalSelesai);
+            startDate.setHours(0, 0, 0, 0);
+            endDate.setHours(23, 59, 59, 999);
+
+            if (today < startDate || today > endDate) return false;
+
+            // Check minimum transaction
+            if (subtotal < p.minTransaksi) return false;
+
+            return true;
+        });
+
+        if (validPromos.length === 0) return null;
+
+        // Calculate discount for each valid promo and find the best one
+        let bestPromo: Promo | null = null;
+        let bestDiscount = 0;
+
+        for (const promo of validPromos) {
+            let discount = 0;
+
+            if (promo.tipeDiskon === 'persentase') {
+                discount = (subtotal * promo.nilaiDiskon) / 100;
+                // Apply max discount cap if set
+                if (promo.maxDiskon && promo.maxDiskon > 0 && discount > promo.maxDiskon) {
+                    discount = promo.maxDiskon;
+                }
+            } else {
+                // Nominal discount
+                discount = promo.nilaiDiskon;
+            }
+
+            if (discount > bestDiscount) {
+                bestDiscount = discount;
+                bestPromo = promo;
+            }
+        }
+
+        if (bestPromo && bestDiscount > 0) {
+            return { promo: bestPromo, discountAmount: bestDiscount };
+        }
+
+        return null;
+    };
+
     return (
         <PromoContext.Provider value={{
             promos,
@@ -128,7 +186,8 @@ export function PromoProvider({ children }: { children: ReactNode }) {
             updatePromo,
             togglePromoStatus,
             deletePromo,
-            getPromoByKode
+            getPromoByKode,
+            getApplicablePromo
         }}>
             {children}
         </PromoContext.Provider>

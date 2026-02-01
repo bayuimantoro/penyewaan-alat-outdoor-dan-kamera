@@ -28,6 +28,7 @@ export default function RiwayatPage() {
     const [selectedTrx, setSelectedTrx] = useState<Transaksi | null>(null);
     const [payingTrx, setPayingTrx] = useState<Transaksi | null>(null);
     const [returningTrx, setReturningTrx] = useState<Transaksi | null>(null);
+    const [cancellingTrx, setCancellingTrx] = useState<Transaksi | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
 
     const handleViewDetail = (trx: Transaksi) => {
@@ -64,6 +65,22 @@ export default function RiwayatPage() {
             setIsProcessing(false);
             setReturningTrx(null);
             alert('Permintaan pengembalian berhasil!\nSilakan kembalikan barang ke lokasi rental.');
+        }, 1000);
+    };
+
+    const handleCancelOrder = (trx: Transaksi) => {
+        setCancellingTrx(trx);
+    };
+
+    const confirmCancelOrder = () => {
+        if (!cancellingTrx) return;
+
+        setIsProcessing(true);
+        setTimeout(() => {
+            updateTransactionStatus(cancellingTrx.id, 'dibatalkan');
+            setIsProcessing(false);
+            setCancellingTrx(null);
+            alert('Pesanan berhasil dibatalkan.');
         }, 1000);
     };
 
@@ -153,16 +170,28 @@ export default function RiwayatPage() {
                                             <TableCell align="right">
                                                 <div style={{ fontWeight: 600 }}>
                                                     {(() => {
-                                                        let displayTotal = trx.total;
-                                                        // If total is invalid (NaN or 0 when it shouldn't be), recalculate from details
-                                                        if (isNaN(Number(trx.total)) || (trx.total === 0 && details.length > 0)) {
-                                                            const calculatedTotal = details.reduce((sum, d) => {
+                                                        // ALWAYS calculate total from components
+                                                        const subtotal = Number(trx.subtotal) || 0;
+                                                        let displayTotal = 0;
+
+                                                        if (subtotal > 0) {
+                                                            const biayaLayanan = 10000;
+                                                            const diskon = Number(trx.diskon) || 0;
+                                                            displayTotal = subtotal + biayaLayanan - diskon;
+                                                        } else {
+                                                            // Fallback only if subtotal is missing/0 in header BUT details exist
+                                                            const calculatedSubtotal = details.reduce((sum, d) => {
                                                                 const price = d.hargaSewa || 0;
                                                                 return sum + (price * d.qty * trx.totalHari);
                                                             }, 0);
-                                                            // Add service fee if applicable (10000)
-                                                            displayTotal = calculatedTotal > 0 ? calculatedTotal + 10000 : 0;
+
+                                                            if (calculatedSubtotal > 0) {
+                                                                const biayaLayanan = 10000;
+                                                                const diskon = Number(trx.diskon) || 0;
+                                                                displayTotal = calculatedSubtotal + biayaLayanan - diskon;
+                                                            }
                                                         }
+
                                                         return formatRupiah(displayTotal);
                                                     })()}
                                                 </div>
@@ -181,9 +210,19 @@ export default function RiwayatPage() {
                                                         Detail
                                                     </Button>
                                                     {trx.status === 'menunggu_pembayaran' && (
-                                                        <Button size="sm" onClick={() => handlePayNow(trx)}>
-                                                            Bayar
-                                                        </Button>
+                                                        <>
+                                                            <Button size="sm" onClick={() => handlePayNow(trx)}>
+                                                                Bayar
+                                                            </Button>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="secondary"
+                                                                onClick={() => handleCancelOrder(trx)}
+                                                                style={{ color: 'var(--error)' }}
+                                                            >
+                                                                Batalkan
+                                                            </Button>
+                                                        </>
                                                     )}
                                                     {trx.status === 'sedang_disewa' && (
                                                         <Button size="sm" variant="secondary" onClick={() => handleReturn(trx)}>
@@ -213,44 +252,71 @@ export default function RiwayatPage() {
                     </Button>
                 }
             >
-                {selectedTrx && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                        {/* Status & Info */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <StatusBadge status={selectedTrx.status} />
-                            <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-                                Booking: {formatDate(selectedTrx.tanggalBooking)}
-                            </div>
-                        </div>
+                {selectedTrx && (() => {
+                    const modalDetails = getTransactionDetails(selectedTrx.id);
 
-                        {/* Rental Period */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', padding: '1rem', background: 'var(--bg-tertiary)', borderRadius: '0.75rem' }}>
-                            <div>
-                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Tanggal Mulai</div>
-                                <div style={{ fontWeight: 600 }}>{formatDate(selectedTrx.tanggalMulai)}</div>
-                            </div>
-                            <div>
-                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Tanggal Selesai</div>
-                                <div style={{ fontWeight: 600 }}>{formatDate(selectedTrx.tanggalSelesai)}</div>
-                            </div>
-                            <div>
-                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Durasi</div>
-                                <div style={{ fontWeight: 600 }}>{selectedTrx.totalHari} Hari</div>
-                            </div>
-                            <div>
-                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Lokasi</div>
-                                <div style={{ fontWeight: 600 }}>Jl. Rental No. 123</div>
-                            </div>
-                        </div>
+                    // Format booking date with fallback
+                    const bookingDate = selectedTrx.tanggalBooking && !isNaN(new Date(selectedTrx.tanggalBooking).getTime())
+                        ? formatDate(selectedTrx.tanggalBooking)
+                        : selectedTrx.tanggalMulai && !isNaN(new Date(selectedTrx.tanggalMulai).getTime())
+                            ? formatDate(selectedTrx.tanggalMulai)
+                            : '-';
 
-                        {/* Items */}
-                        <div>
-                            <h4 style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.75rem', color: 'var(--text-secondary)' }}>
-                                BARANG DISEWA
-                            </h4>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                {getTransactionDetails(selectedTrx.id)
-                                    .map(detail => {
+                    // Use stored subtotal from details
+                    let displaySubtotal = 0;
+                    if (modalDetails.length > 0) {
+                        // Use the pre-calculated subtotal from each detail - convert to Number in case of string
+                        displaySubtotal = modalDetails.reduce((sum: number, d) => {
+                            return sum + Number(d.subtotal || 0);
+                        }, 0);
+                    } else if (selectedTrx.subtotal && Number(selectedTrx.subtotal) > 0) {
+                        displaySubtotal = Number(selectedTrx.subtotal);
+                    } else if (selectedTrx.diskon && Number(selectedTrx.diskon) > 0) {
+                        displaySubtotal = Number(selectedTrx.diskon) * 10;
+                    }
+
+                    // ALWAYS calculate total from components
+                    const biayaLayanan = displaySubtotal > 0 ? 10000 : 0;
+                    const diskon = Number(selectedTrx.diskon || 0);
+                    const displayTotal = displaySubtotal + biayaLayanan - diskon;
+
+                    return (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                            {/* Status & Info */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <StatusBadge status={selectedTrx.status} />
+                                <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                                    Booking: {bookingDate}
+                                </div>
+                            </div>
+
+                            {/* Rental Period */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', padding: '1rem', background: 'var(--bg-tertiary)', borderRadius: '0.75rem' }}>
+                                <div>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Tanggal Mulai</div>
+                                    <div style={{ fontWeight: 600 }}>{formatDate(selectedTrx.tanggalMulai)}</div>
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Tanggal Selesai</div>
+                                    <div style={{ fontWeight: 600 }}>{formatDate(selectedTrx.tanggalSelesai)}</div>
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Durasi</div>
+                                    <div style={{ fontWeight: 600 }}>{selectedTrx.totalHari} Hari</div>
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Lokasi</div>
+                                    <div style={{ fontWeight: 600 }}>Jl. Rental No. 123</div>
+                                </div>
+                            </div>
+
+                            {/* Items */}
+                            <div>
+                                <h4 style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.75rem', color: 'var(--text-secondary)' }}>
+                                    BARANG DISEWA
+                                </h4>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                    {modalDetails.length > 0 ? modalDetails.map(detail => {
                                         const barang = barangList.find(b => b.id === detail.barangId);
                                         const kategori = mockKategori.find(k => k.id === barang?.kategoriId);
                                         return (
@@ -266,51 +332,62 @@ export default function RiwayatPage() {
                                                 }}
                                             >
                                                 <div>
-                                                    <div style={{ fontSize: '0.75rem', color: 'var(--accent-400)' }}>{kategori?.nama}</div>
-                                                    <div style={{ fontWeight: 600 }}>{barang?.nama}</div>
+                                                    <div style={{ fontSize: '0.75rem', color: 'var(--accent-400)' }}>{kategori?.nama || 'Kategori'}</div>
+                                                    <div style={{ fontWeight: 600 }}>{barang?.nama || 'Barang tidak ditemukan'}</div>
                                                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                                        {detail.qty} unit × {formatRupiah(detail.hargaSewa)}/hari
+                                                        {detail.qty} unit × {formatRupiah(detail.hargaSewa || 0)}/hari
                                                     </div>
                                                 </div>
                                                 <div style={{ fontWeight: 600, color: 'var(--primary-400)' }}>
-                                                    {formatRupiah(detail.subtotal)}
+                                                    {formatRupiah(detail.subtotal || 0)}
                                                 </div>
                                             </div>
                                         );
-                                    })}
+                                    }) : (
+                                        <div style={{ padding: '1rem', background: 'var(--bg-secondary)', borderRadius: '0.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                                            Tidak ada data barang
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                        </div>
 
-                        {/* Total */}
-                        <div style={{ padding: '1rem', background: 'var(--bg-tertiary)', borderRadius: '0.75rem' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                                <span style={{ color: 'var(--text-muted)' }}>Subtotal</span>
-                                <span>{formatRupiah(selectedTrx.subtotal)}</span>
-                            </div>
-                            {selectedTrx.diskon > 0 && (
+                            {/* Total */}
+                            <div style={{ padding: '1rem', background: 'var(--bg-tertiary)', borderRadius: '0.75rem' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                                    <span style={{ color: 'var(--success)' }}>Diskon</span>
-                                    <span style={{ color: 'var(--success)' }}>-{formatRupiah(selectedTrx.diskon)}</span>
+                                    <span style={{ color: 'var(--text-muted)' }}>Subtotal</span>
+                                    <span>{formatRupiah(displaySubtotal)}</span>
                                 </div>
-                            )}
-                            {selectedTrx.denda > 0 && (
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                                    <span style={{ color: 'var(--error)' }}>Denda</span>
-                                    <span style={{ color: 'var(--error)' }}>+{formatRupiah(selectedTrx.denda)}</span>
+                                {(modalDetails.length > 0 || displaySubtotal > 0) && (
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                                        <span style={{ color: 'var(--text-muted)' }}>Biaya Layanan</span>
+                                        <span>{formatRupiah(10000)}</span>
+                                    </div>
+                                )}
+                                {selectedTrx.diskon > 0 && (
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                                        <span style={{ color: 'var(--success)' }}>Diskon</span>
+                                        <span style={{ color: 'var(--success)' }}>-{formatRupiah(selectedTrx.diskon)}</span>
+                                    </div>
+                                )}
+                                {selectedTrx.denda > 0 && (
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                                        <span style={{ color: 'var(--error)' }}>Denda</span>
+                                        <span style={{ color: 'var(--error)' }}>+{formatRupiah(selectedTrx.denda)}</span>
+                                    </div>
+                                )}
+                                <div style={{ height: '1px', background: 'var(--border-color)', margin: '0.5rem 0' }} />
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '1.125rem' }}>
+                                    <span>Total</span>
+                                    <span className="gradient-text">{formatRupiah(displayTotal + Number(selectedTrx.denda || 0))}</span>
                                 </div>
-                            )}
-                            <div style={{ height: '1px', background: 'var(--border-color)', margin: '0.5rem 0' }} />
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '1.125rem' }}>
-                                <span>Total</span>
-                                <span className="gradient-text">{formatRupiah(selectedTrx.total + selectedTrx.denda)}</span>
                             </div>
                         </div>
-                    </div>
-                )}
-            </Modal>
+                    );
+                })()}
+            </Modal >
 
             {/* Payment Modal */}
-            <Modal
+            < Modal
                 isOpen={!!payingTrx}
                 onClose={() => setPayingTrx(null)}
                 title="Konfirmasi Pembayaran"
@@ -326,49 +403,70 @@ export default function RiwayatPage() {
                     </>
                 }
             >
-                {payingTrx && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                        <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>
-                                Total Pembayaran
-                            </div>
-                            <div style={{ fontSize: '2rem', fontWeight: 700 }} className="gradient-text">
-                                {formatRupiah(payingTrx.total)}
-                            </div>
-                        </div>
+                {payingTrx && (() => {
+                    const paymentDetails = getTransactionDetails(payingTrx.id);
 
-                        <div
-                            style={{
-                                padding: '1rem',
-                                background: 'rgba(34, 197, 94, 0.1)',
-                                borderRadius: '0.75rem',
-                                border: '1px solid rgba(34, 197, 94, 0.2)',
-                            }}
-                        >
-                            <div style={{ fontSize: '0.875rem', color: 'var(--success)', fontWeight: 600, marginBottom: '0.5rem' }}>
-                                💳 Bayar di Lokasi
-                            </div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                Pembayaran dilakukan langsung saat mengambil barang. Anda dapat membayar dengan cash, transfer, atau e-wallet.
-                            </div>
-                        </div>
+                    // Use stored subtotal from details
+                    let paySubtotal = 0;
+                    if (paymentDetails.length > 0) {
+                        paySubtotal = paymentDetails.reduce((sum: number, d) => {
+                            return sum + Number(d.subtotal || 0);
+                        }, 0);
+                    } else if (payingTrx.subtotal && Number(payingTrx.subtotal) > 0) {
+                        paySubtotal = Number(payingTrx.subtotal);
+                    } else if (payingTrx.diskon && Number(payingTrx.diskon) > 0) {
+                        paySubtotal = Number(payingTrx.diskon) * 10;
+                    }
 
-                        <div style={{ padding: '1rem', background: 'var(--bg-tertiary)', borderRadius: '0.75rem' }}>
-                            <div style={{ fontSize: '0.875rem', marginBottom: '0.75rem' }}>
-                                <strong>Informasi Pengambilan:</strong>
+                    // ALWAYS calculate total from components
+                    const biayaLayanan = paySubtotal > 0 ? 10000 : 0;
+                    const diskon = Number(payingTrx.diskon || 0);
+                    const payTotal = paySubtotal + biayaLayanan - diskon;
+
+                    return (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                            <div style={{ textAlign: 'center' }}>
+                                <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>
+                                    Total Pembayaran
+                                </div>
+                                <div style={{ fontSize: '2rem', fontWeight: 700 }} className="gradient-text">
+                                    {formatRupiah(payTotal)}
+                                </div>
                             </div>
-                            <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-                                📍 Jl. Rental No. 123, Jakarta<br />
-                                📅 {formatDate(payingTrx.tanggalMulai)}<br />
-                                ⏰ 09:00 - 18:00 WIB
+
+                            <div
+                                style={{
+                                    padding: '1rem',
+                                    background: 'rgba(34, 197, 94, 0.1)',
+                                    borderRadius: '0.75rem',
+                                    border: '1px solid rgba(34, 197, 94, 0.2)',
+                                }}
+                            >
+                                <div style={{ fontSize: '0.875rem', color: 'var(--success)', fontWeight: 600, marginBottom: '0.5rem' }}>
+                                    💳 Bayar di Lokasi
+                                </div>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                    Pembayaran dilakukan langsung saat mengambil barang. Anda dapat membayar dengan cash, transfer, atau e-wallet.
+                                </div>
+                            </div>
+
+                            <div style={{ padding: '1rem', background: 'var(--bg-tertiary)', borderRadius: '0.75rem' }}>
+                                <div style={{ fontSize: '0.875rem', marginBottom: '0.75rem' }}>
+                                    <strong>Informasi Pengambilan:</strong>
+                                </div>
+                                <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                                    📍 Jl. Rental No. 123, Jakarta<br />
+                                    📅 {formatDate(payingTrx.tanggalMulai)}<br />
+                                    ⏰ 09:00 - 18:00 WIB
+                                </div>
                             </div>
                         </div>
-                    </div>
-                )}
-            </Modal>
+                    );
+                })()}
+            </Modal >
 
             {/* Return Confirmation Modal */}
-            <Modal
+            < Modal
                 isOpen={!!returningTrx}
                 onClose={() => setReturningTrx(null)}
                 title="Konfirmasi Pengembalian Barang"
@@ -425,7 +523,81 @@ export default function RiwayatPage() {
                         </div>
                     </div>
                 )}
-            </Modal>
-        </div>
+            </Modal >
+
+            {/* Cancel Order Confirmation Modal */}
+            < Modal
+                isOpen={!!cancellingTrx}
+                onClose={() => setCancellingTrx(null)}
+                title="Batalkan Pesanan"
+                size="md"
+                footer={
+                    <>
+                        <Button variant="secondary" onClick={() => setCancellingTrx(null)}>
+                            Tidak Jadi
+                        </Button>
+                        <Button
+                            onClick={confirmCancelOrder}
+                            isLoading={isProcessing}
+                            style={{ background: 'var(--error)' }}
+                        >
+                            Ya, Batalkan
+                        </Button>
+                    </>
+                }
+            >
+                {cancellingTrx && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{
+                                width: '60px',
+                                height: '60px',
+                                margin: '0 auto 1rem',
+                                background: 'rgba(239, 68, 68, 0.1)',
+                                borderRadius: '50%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}>
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--error)" strokeWidth="2">
+                                    <circle cx="12" cy="12" r="10" />
+                                    <line x1="15" y1="9" x2="9" y2="15" />
+                                    <line x1="9" y1="9" x2="15" y2="15" />
+                                </svg>
+                            </div>
+                            <div style={{ fontSize: '1.125rem', fontWeight: 600 }}>
+                                Yakin ingin membatalkan pesanan ini?
+                            </div>
+                            <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+                                Kode: <strong>{cancellingTrx.kode}</strong>
+                            </div>
+                        </div>
+
+                        <div style={{ padding: '1rem', background: 'var(--bg-tertiary)', borderRadius: '0.75rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', marginBottom: '0.5rem' }}>
+                                <span style={{ color: 'var(--text-muted)' }}>Total Pesanan</span>
+                                <span style={{ fontWeight: 600 }}>{formatRupiah(cancellingTrx.total)}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem' }}>
+                                <span style={{ color: 'var(--text-muted)' }}>Tanggal Sewa</span>
+                                <span>{formatDate(cancellingTrx.tanggalMulai)} - {formatDate(cancellingTrx.tanggalSelesai)}</span>
+                            </div>
+                        </div>
+
+                        <div style={{
+                            padding: '0.75rem',
+                            background: 'rgba(239, 68, 68, 0.1)',
+                            borderRadius: '0.5rem',
+                            border: '1px solid rgba(239, 68, 68, 0.2)',
+                            fontSize: '0.75rem',
+                            color: 'var(--error)',
+                            textAlign: 'center'
+                        }}>
+                            ⚠️ Pembatalan tidak dapat dibatalkan. Anda perlu membuat pesanan baru jika ingin menyewa lagi.
+                        </div>
+                    </div>
+                )}
+            </Modal >
+        </div >
     );
 }

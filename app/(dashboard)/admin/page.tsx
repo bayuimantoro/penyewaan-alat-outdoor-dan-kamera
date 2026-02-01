@@ -42,7 +42,7 @@ function StatCard({ icon, iconColor, label, value, change }: {
 
 export default function AdminDashboard() {
     const router = useRouter();
-    const { transactions, updateTransactionStatus, isLoading: transactionsLoading } = useTransactions();
+    const { transactions, updateTransactionStatus, getTransactionDetails, isLoading: transactionsLoading } = useTransactions();
     const { users, updateUserStatus, isLoading: usersLoading } = useUsers();
     const { barang: barangList, isLoading: barangLoading } = useBarang();
     const [selectedTrx, setSelectedTrx] = useState<Transaksi | null>(null);
@@ -55,17 +55,50 @@ export default function AdminDashboard() {
 
     const pendingMembers = users.filter(u => u.role === 'member' && u.statusVerifikasi === 'pending');
     const activeTransaksi = transactions.filter(t => t.status !== 'selesai' && t.status !== 'dibatalkan');
-    // Calculate revenue from all non-cancelled transactions with fallback like Member dashboard
+    // Calculate revenue ONLY from completed/ongoing transactions (not pending payment)
     const totalRevenue = transactions
-        .filter(t => t.status !== 'dibatalkan')
-        .reduce((sum, t) => {
-            let validTotal = Number(t.total);
-            if (isNaN(validTotal) || validTotal === 0) {
-                // Fallback to subtotal + denda if total is missing/zero
-                validTotal = (Number(t.subtotal) || 0) + (Number(t.denda) || 0);
-            }
+        .filter(t => t.status === 'selesai' || t.status === 'sedang_disewa')
+        .reduce((sum: number, t) => {
+            const subtotal = Number(t.subtotal) || 0;
+            const diskon = Number(t.diskon) || 0;
+            const denda = Number(t.denda) || 0;
+
+            // Calculate correct total: Subtotal + Service (10k) - Discount + Denda
+            // We use calculated values instead of stored 'total' to ensure accuracy
+            const biayaLayanan = subtotal > 0 ? 10000 : 0;
+            const validTotal = subtotal + biayaLayanan - diskon + denda;
+
             return sum + validTotal;
         }, 0);
+
+    // Calculate monthly revenue change
+    const now = new Date();
+    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+
+    const thisMonthRevenue = transactions
+        .filter(t => t.status !== 'dibatalkan' && new Date(t.tanggalBooking) >= thisMonthStart)
+        .reduce((sum, t) => sum + (Number(t.total) || Number(t.subtotal) || 0), 0);
+
+    const lastMonthRevenue = transactions
+        .filter(t => {
+            const date = new Date(t.tanggalBooking);
+            return t.status !== 'dibatalkan' && date >= lastMonthStart && date <= lastMonthEnd;
+        })
+        .reduce((sum, t) => sum + (Number(t.total) || Number(t.subtotal) || 0), 0);
+
+    // Calculate percentage change (only if there's data to compare)
+    let revenueChange: { value: string; positive: boolean } | undefined;
+    if (totalRevenue > 0 && lastMonthRevenue > 0) {
+        const change = ((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100;
+        revenueChange = {
+            value: `${change >= 0 ? '+' : ''}${change.toFixed(0)}% dari bulan lalu`,
+            positive: change >= 0
+        };
+    } else if (totalRevenue > 0 && thisMonthRevenue > 0) {
+        revenueChange = { value: 'Data baru bulan ini', positive: true };
+    }
 
     const handleApproveMember = (memberId: number) => {
         updateUserStatus(memberId, 'approved');
@@ -113,7 +146,7 @@ export default function AdminDashboard() {
                     iconColor="green"
                     label="Total Pendapatan"
                     value={formatRupiah(totalRevenue)}
-                    change={{ value: '+12% bulan ini', positive: true }}
+                    change={revenueChange}
                 />
                 <StatCard
                     icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21" /><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" /></svg>}
@@ -241,14 +274,45 @@ export default function AdminDashboard() {
                         <TableBody>
                             {transactions.slice(0, 5).map(trx => {
                                 const member = users.find(u => u.id === trx.userId);
+                                const details = getTransactionDetails(trx.id);
+
+                                // Calculate display total
+                                const subtotal = Number(trx.subtotal) || 0;
+                                let displayTotal = 0;
+
+                                if (subtotal > 0) {
+                                    const biayaLayanan = 10000;
+                                    const diskon = Number(trx.diskon) || 0;
+                                    displayTotal = subtotal + biayaLayanan - diskon;
+                                } else {
+                                    // Fallback if subtotal is missing (should verify with details)
+                                    const calculatedSubtotal = details.reduce((sum: number, d: { hargaSewa?: number; qty: number }) => {
+                                        const price = d.hargaSewa || 0;
+                                        return sum + (price * d.qty * trx.totalHari);
+                                    }, 0);
+
+                                    if (calculatedSubtotal > 0) {
+                                        const biayaLayanan = 10000;
+                                        const diskon = Number(trx.diskon) || 0;
+                                        displayTotal = calculatedSubtotal + biayaLayanan - diskon;
+                                    }
+                                }
+
+                                // Format date with fallback
+                                const displayDate = trx.tanggalBooking && !isNaN(new Date(trx.tanggalBooking).getTime())
+                                    ? formatDate(trx.tanggalBooking)
+                                    : trx.tanggalMulai && !isNaN(new Date(trx.tanggalMulai).getTime())
+                                        ? formatDate(trx.tanggalMulai)
+                                        : '-';
+
                                 return (
                                     <TableRow key={trx.id}>
                                         <TableCell>
                                             <span style={{ fontWeight: 600, color: 'var(--primary-400)' }}>{trx.kode}</span>
                                         </TableCell>
                                         <TableCell>{member?.nama || '-'}</TableCell>
-                                        <TableCell>{formatDate(trx.tanggalBooking)}</TableCell>
-                                        <TableCell align="right">{formatRupiah(trx.total)}</TableCell>
+                                        <TableCell>{displayDate}</TableCell>
+                                        <TableCell align="right">{formatRupiah(displayTotal)}</TableCell>
                                         <TableCell align="center"><StatusBadge status={trx.status} /></TableCell>
                                         <TableCell align="center">
                                             <Button size="sm" variant="secondary" onClick={() => setSelectedTrx(trx)}>Detail</Button>
@@ -268,86 +332,127 @@ export default function AdminDashboard() {
                 title={`Detail Transaksi ${selectedTrx?.kode}`}
                 size="lg"
             >
-                {selectedTrx && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                        {/* Status */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <StatusBadge status={selectedTrx.status} />
-                            <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-                                Booking: {formatDate(selectedTrx.tanggalBooking)}
+                {selectedTrx && (() => {
+                    const modalDetails = getTransactionDetails(selectedTrx.id);
+
+                    // Calculate display total
+                    const subtotal = Number(selectedTrx.subtotal) || 0;
+                    let modalDisplayTotal = 0;
+
+                    if (subtotal > 0) {
+                        const biayaLayanan = 10000;
+                        const diskon = Number(selectedTrx.diskon) || 0;
+                        // For modal total, we add denda immediately here or handle it in render?
+                        // In other pages we handle it in render. Let's keep it consistent.
+                        // Here we calculate the BASE total (without denda) to show as "Total"
+                        // Then denda is added visually or separate line.
+                        // Wait, previous code added denda in render: displayTotal + (denda || 0)
+                        // So here we just calculate the base total
+                        modalDisplayTotal = subtotal + biayaLayanan - diskon;
+                    } else {
+                        // Fallback
+                        const calculatedSubtotal = modalDetails.reduce((sum: number, d: { hargaSewa?: number; qty: number }) => {
+                            const price = d.hargaSewa || 0;
+                            return sum + (price * d.qty * selectedTrx.totalHari);
+                        }, 0);
+
+                        if (calculatedSubtotal > 0) {
+                            const biayaLayanan = 10000;
+                            const diskon = Number(selectedTrx.diskon) || 0;
+                            modalDisplayTotal = calculatedSubtotal + biayaLayanan - diskon;
+                        }
+                    }
+
+                    // Format date with fallback
+                    const modalDisplayDate = selectedTrx.tanggalBooking && !isNaN(new Date(selectedTrx.tanggalBooking).getTime())
+                        ? formatDate(selectedTrx.tanggalBooking)
+                        : selectedTrx.tanggalMulai && !isNaN(new Date(selectedTrx.tanggalMulai).getTime())
+                            ? formatDate(selectedTrx.tanggalMulai)
+                            : '-';
+
+                    return (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                            {/* Status */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <StatusBadge status={selectedTrx.status} />
+                                <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                                    Booking: {modalDisplayDate}
+                                </div>
                             </div>
-                        </div>
 
-                        {/* Member Info */}
-                        <div style={{ padding: '1rem', background: 'var(--bg-tertiary)', borderRadius: '0.75rem' }}>
-                            <h4 style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.75rem' }}>INFORMASI MEMBER</h4>
-                            {(() => {
-                                const user = users.find(u => u.id === selectedTrx.userId);
-                                return (
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.875rem' }}>
-                                        <div><span style={{ color: 'var(--text-muted)' }}>Nama:</span> {user?.nama}</div>
-                                        <div><span style={{ color: 'var(--text-muted)' }}>No. HP:</span> {user?.noHp}</div>
-                                        <div><span style={{ color: 'var(--text-muted)' }}>Email:</span> {user?.email}</div>
-                                    </div>
-                                );
-                            })()}
-                        </div>
+                            {/* Member Info */}
+                            <div style={{ padding: '1rem', background: 'var(--bg-tertiary)', borderRadius: '0.75rem' }}>
+                                <h4 style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.75rem' }}>INFORMASI MEMBER</h4>
+                                {(() => {
+                                    const user = users.find(u => u.id === selectedTrx.userId);
+                                    return (
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.875rem' }}>
+                                            <div><span style={{ color: 'var(--text-muted)' }}>Nama:</span> {user?.nama || '-'}</div>
+                                            <div><span style={{ color: 'var(--text-muted)' }}>No. HP:</span> {user?.noHp || '-'}</div>
+                                            <div><span style={{ color: 'var(--text-muted)' }}>Email:</span> {user?.email || '-'}</div>
+                                        </div>
+                                    );
+                                })()}
+                            </div>
 
-                        {/* Items */}
-                        <div>
-                            <h4 style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.75rem' }}>BARANG</h4>
-                            {mockDetailTransaksi
-                                .filter(d => d.transaksiId === selectedTrx.id)
-                                .map(detail => {
+                            {/* Items */}
+                            <div>
+                                <h4 style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.75rem' }}>BARANG</h4>
+                                {modalDetails.length > 0 ? modalDetails.map(detail => {
                                     const barang = barangList.find(b => b.id === detail.barangId);
                                     return (
                                         <div key={detail.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem', background: 'var(--bg-secondary)', borderRadius: '0.5rem', marginBottom: '0.5rem' }}>
                                             <div>
-                                                <div style={{ fontWeight: 600 }}>{barang?.nama}</div>
-                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{detail.qty} unit × {formatRupiah(detail.hargaSewa)}/hari</div>
+                                                <div style={{ fontWeight: 600 }}>{barang?.nama || 'Barang tidak ditemukan'}</div>
+                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{detail.qty} unit × {formatRupiah(detail.hargaSewa || 0)}/hari</div>
                                             </div>
-                                            <div style={{ fontWeight: 600, color: 'var(--primary-400)' }}>{formatRupiah(detail.subtotal)}</div>
+                                            <div style={{ fontWeight: 600, color: 'var(--primary-400)' }}>{formatRupiah(detail.subtotal || 0)}</div>
                                         </div>
                                     );
-                                })}
-                        </div>
-
-                        {/* Total */}
-                        <div style={{ padding: '1rem', background: 'var(--bg-tertiary)', borderRadius: '0.75rem' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '1.125rem' }}>
-                                <span>Total</span>
-                                <span className="gradient-text">{formatRupiah(selectedTrx.total)}</span>
-                            </div>
-                        </div>
-
-                        {/* Quick Status Update */}
-                        <div>
-                            <h4 style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.75rem' }}>UPDATE STATUS</h4>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                                {selectedTrx.status === 'menunggu_pembayaran' && (
-                                    <Button size="sm" onClick={() => handleUpdateTransactionStatus(selectedTrx.id, 'menunggu_konfirmasi')}>
-                                        ✓ Konfirmasi Pembayaran
-                                    </Button>
-                                )}
-                                {selectedTrx.status === 'menunggu_konfirmasi' && (
-                                    <Button size="sm" onClick={() => handleUpdateTransactionStatus(selectedTrx.id, 'sedang_disewa')}>
-                                        📦 Serahkan Barang
-                                    </Button>
-                                )}
-                                {selectedTrx.status === 'sedang_disewa' && (
-                                    <Button size="sm" onClick={() => handleUpdateTransactionStatus(selectedTrx.id, 'selesai')}>
-                                        ✅ Barang Dikembalikan
-                                    </Button>
-                                )}
-                                {selectedTrx.status !== 'dibatalkan' && selectedTrx.status !== 'selesai' && (
-                                    <Button size="sm" variant="secondary" onClick={() => handleUpdateTransactionStatus(selectedTrx.id, 'dibatalkan')} style={{ color: 'var(--error)' }}>
-                                        ✕ Batalkan
-                                    </Button>
+                                }) : (
+                                    <div style={{ padding: '1rem', background: 'var(--bg-secondary)', borderRadius: '0.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                                        Tidak ada data barang
+                                    </div>
                                 )}
                             </div>
+
+                            {/* Total */}
+                            <div style={{ padding: '1rem', background: 'var(--bg-tertiary)', borderRadius: '0.75rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '1.125rem' }}>
+                                    <span>Total</span>
+                                    <span className="gradient-text">{formatRupiah(modalDisplayTotal)}</span>
+                                </div>
+                            </div>
+
+                            {/* Quick Status Update */}
+                            <div>
+                                <h4 style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.75rem' }}>UPDATE STATUS</h4>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                    {selectedTrx.status === 'menunggu_pembayaran' && (
+                                        <Button size="sm" onClick={() => handleUpdateTransactionStatus(selectedTrx.id, 'menunggu_konfirmasi')}>
+                                            ✓ Konfirmasi Pembayaran
+                                        </Button>
+                                    )}
+                                    {selectedTrx.status === 'menunggu_konfirmasi' && (
+                                        <Button size="sm" onClick={() => handleUpdateTransactionStatus(selectedTrx.id, 'sedang_disewa')}>
+                                            📦 Serahkan Barang
+                                        </Button>
+                                    )}
+                                    {selectedTrx.status === 'sedang_disewa' && (
+                                        <Button size="sm" onClick={() => handleUpdateTransactionStatus(selectedTrx.id, 'selesai')}>
+                                            ✅ Barang Dikembalikan
+                                        </Button>
+                                    )}
+                                    {selectedTrx.status !== 'dibatalkan' && selectedTrx.status !== 'selesai' && (
+                                        <Button size="sm" variant="secondary" onClick={() => handleUpdateTransactionStatus(selectedTrx.id, 'dibatalkan')} style={{ color: 'var(--error)' }}>
+                                            ✕ Batalkan
+                                        </Button>
+                                    )}
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                )}
+                    );
+                })()}
             </Modal>
         </div>
     );

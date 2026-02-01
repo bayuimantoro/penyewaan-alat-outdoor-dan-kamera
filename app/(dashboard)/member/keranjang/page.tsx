@@ -8,10 +8,12 @@ import { Button } from '@/components/ui/Button';
 import { formatRupiah, calculateDays } from '@/lib/utils';
 import { mockKategori } from '@/lib/mock-data';
 import { useCart } from '@/lib/cart-context';
+import { usePromos } from '@/lib/promo-context';
 
 export default function KeranjangPage() {
     const router = useRouter();
     const { items: cartItems, removeItem, updateItem } = useCart();
+    const { getApplicablePromo, promos } = usePromos();
 
     const updateQty = (index: number, qty: number) => {
         if (qty < 1) return;
@@ -208,10 +210,54 @@ export default function KeranjangPage() {
                                     <span style={{ color: 'var(--text-muted)' }}>Biaya Layanan</span>
                                     <span>{formatRupiah(biayaLayanan)}</span>
                                 </div>
+                                {/* Show applicable promo info */}
+                                {(() => {
+                                    const applicablePromo = getApplicablePromo(subtotal);
+                                    if (applicablePromo) {
+                                        return (
+                                            <div style={{
+                                                padding: '0.5rem 0.75rem',
+                                                background: 'rgba(34, 197, 94, 0.1)',
+                                                borderRadius: '0.5rem',
+                                                border: '1px solid rgba(34, 197, 94, 0.2)',
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                fontSize: '0.875rem'
+                                            }}>
+                                                <span style={{ color: 'var(--success)' }}>🎉 {applicablePromo.promo.nama}</span>
+                                                <span style={{ color: 'var(--success)', fontWeight: 600 }}>-{formatRupiah(applicablePromo.discountAmount)}</span>
+                                            </div>
+                                        );
+                                    } else {
+                                        // Check if there's a promo they could get with higher subtotal
+                                        const nextPromo = promos.find(p =>
+                                            p.status === 'aktif' &&
+                                            p.minTransaksi > subtotal &&
+                                            new Date(p.tanggalMulai) <= new Date() &&
+                                            new Date(p.tanggalSelesai) >= new Date()
+                                        );
+                                        if (nextPromo && subtotal > 0) {
+                                            const needed = nextPromo.minTransaksi - subtotal;
+                                            return (
+                                                <div style={{
+                                                    padding: '0.5rem 0.75rem',
+                                                    background: 'rgba(217, 70, 239, 0.1)',
+                                                    borderRadius: '0.5rem',
+                                                    border: '1px solid rgba(217, 70, 239, 0.2)',
+                                                    fontSize: '0.75rem',
+                                                    color: 'var(--accent-400)'
+                                                }}>
+                                                    💡 Tambah {formatRupiah(needed)} lagi untuk dapat <strong>{nextPromo.nama}</strong>!
+                                                </div>
+                                            );
+                                        }
+                                        return null;
+                                    }
+                                })()}
                                 <div style={{ height: '1px', background: 'var(--border-color)', margin: '0.5rem 0' }} />
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '1.125rem' }}>
                                     <span>Total</span>
-                                    <span className="gradient-text">{formatRupiah(total)}</span>
+                                    <span className="gradient-text">{formatRupiah(total - (getApplicablePromo(subtotal)?.discountAmount || 0))}</span>
                                 </div>
                             </div>
 
