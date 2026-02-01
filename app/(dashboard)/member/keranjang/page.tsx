@@ -9,11 +9,13 @@ import { formatRupiah, calculateDays } from '@/lib/utils';
 import { mockKategori } from '@/lib/mock-data';
 import { useCart } from '@/lib/cart-context';
 import { usePromos } from '@/lib/promo-context';
+import { useSession } from '@/lib/session-context';
 
 export default function KeranjangPage() {
     const router = useRouter();
     const { items: cartItems, removeItem, updateItem } = useCart();
     const { getApplicablePromo, promos } = usePromos();
+    const { currentUser } = useSession(); // Get user session
 
     const updateQty = (index: number, qty: number) => {
         if (qty < 1) return;
@@ -36,11 +38,21 @@ export default function KeranjangPage() {
     const biayaLayanan = cartItems.length > 0 ? 10000 : 0;
     const total = subtotal + biayaLayanan;
 
+    const isVerified = currentUser?.statusVerifikasi === 'approved';
+
     const handleCheckout = () => {
         if (cartItems.length === 0) {
             alert('Keranjang kosong!');
             return;
         }
+
+        if (!isVerified) {
+            if (confirm('Akun Anda belum terverifikasi. Silakan upload KTP untuk melanjutkan penyewaan.\n\nKlik OK untuk ke halaman verifikasi.')) {
+                router.push('/member/verifikasi');
+            }
+            return;
+        }
+
         router.push('/member/checkout');
     };
 

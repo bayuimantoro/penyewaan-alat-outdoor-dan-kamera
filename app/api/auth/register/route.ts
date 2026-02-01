@@ -32,10 +32,10 @@ export async function POST(request: NextRequest) {
         // Hash password with bcrypt (salt rounds = 10)
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Insert new user with hashed password - auto approved
+        // Insert new user with hashed password - default unverified
         const [result] = await pool.query(
             `INSERT INTO users (nama, email, password, no_hp, alamat, role, status_verifikasi) 
-             VALUES (?, ?, ?, ?, ?, 'member', 'approved')`,
+             VALUES (?, ?, ?, ?, ?, 'member', 'unverified')`,
             [nama, email.toLowerCase(), hashedPassword, noHp || null, alamat || null]
         );
 

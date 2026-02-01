@@ -9,7 +9,7 @@ interface SessionUser {
     noHp: string;
     alamat: string;
     role: 'admin' | 'gudang' | 'member';
-    statusVerifikasi: 'pending' | 'approved' | 'rejected';
+    statusVerifikasi: 'unverified' | 'pending' | 'approved' | 'rejected';
     createdAt: string;
 }
 

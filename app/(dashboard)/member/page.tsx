@@ -69,6 +69,51 @@ export default function MemberDashboard() {
                 <p className="page-subtitle">Berikut ringkasan aktivitas penyewaan Anda</p>
             </div>
 
+            {/* Verification Alert */}
+            {(currentUser?.statusVerifikasi === 'unverified' || currentUser?.statusVerifikasi === 'rejected') && (
+                <div style={{
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    border: '1px solid rgba(239, 68, 68, 0.2)',
+                    borderRadius: '1rem',
+                    padding: '1rem 1.5rem',
+                    marginBottom: '2rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '1rem',
+                    flexWrap: 'wrap'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <div style={{
+                            width: '2.5rem',
+                            height: '2.5rem',
+                            borderRadius: '50%',
+                            background: 'var(--error-500)',
+                            color: 'white',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '1.25rem'
+                        }}>!</div>
+                        <div>
+                            <h3 style={{ fontWeight: 600, color: 'var(--error-500)', marginBottom: '0.25rem' }}>
+                                Akun Belum Terverifikasi
+                            </h3>
+                            <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                                {currentUser.statusVerifikasi === 'rejected'
+                                    ? 'Verifikasi Anda ditolak. Silakan upload ulang data yang benar.'
+                                    : 'Silakan upload foto KTP untuk mengaktifkan fitur penyewaan.'}
+                            </p>
+                        </div>
+                    </div>
+                    <Link href="/member/verifikasi">
+                        <Button variant="danger">
+                            Verifikasi Sekarang
+                        </Button>
+                    </Link>
+                </div>
+            )}
+
             {/* Stats */}
             <div className="stats-grid">
                 <StatCard
@@ -120,10 +165,13 @@ export default function MemberDashboard() {
                             .reduce((acc, t) => {
                                 let validTotal = Number(t.total);
                                 if (isNaN(validTotal) || validTotal === 0) {
-                                    // Fallback calculation if total is invalid
-                                    // Note: We don't have full details here easily without getTransactionDetails
-                                    // So we rely on subtotal + denda at least, or 0
-                                    validTotal = (Number(t.subtotal) || 0) + (Number(t.denda) || 0);
+                                    // Fallback calculation
+                                    const subtotal = Number(t.subtotal) || 0;
+                                    const denda = Number(t.denda) || 0;
+                                    const diskon = Number(t.diskon) || 0;
+                                    const biayaLayanan = subtotal > 0 ? 10000 : 0;
+
+                                    validTotal = subtotal + biayaLayanan - diskon + denda;
                                 }
                                 return acc + validTotal;
                             }, 0)

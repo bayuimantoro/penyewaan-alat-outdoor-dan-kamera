@@ -67,27 +67,46 @@ export default function LoginPage() {
 
     return (
         <div className="glass" style={{ borderRadius: '1.5rem', padding: '2.5rem' }}>
-            {/* Logo */}
+            {/* Logo - Clickable to Home */}
             <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-                <div
+                <Link
+                    href="/"
                     style={{
-                        width: '4rem',
-                        height: '4rem',
-                        margin: '0 auto 1rem',
-                        borderRadius: '1rem',
-                        background: 'linear-gradient(135deg, var(--primary-500), var(--accent-500))',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
+                        textDecoration: 'none',
+                        display: 'inline-block',
+                        transition: 'transform 0.2s ease, opacity 0.2s ease',
                     }}
+                    onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'scale(1.05)';
+                        e.currentTarget.style.opacity = '0.9';
+                    }}
+                    onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'scale(1)';
+                        e.currentTarget.style.opacity = '1';
+                    }}
+                    title="Kembali ke Beranda"
                 >
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
-                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-                    </svg>
-                </div>
-                <h1 className="gradient-text" style={{ fontSize: '1.75rem', marginBottom: '0.5rem' }}>
-                    RentalGear
-                </h1>
+                    <div
+                        style={{
+                            width: '4rem',
+                            height: '4rem',
+                            margin: '0 auto 1rem',
+                            borderRadius: '1rem',
+                            background: 'linear-gradient(135deg, var(--primary-500), var(--accent-500))',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                        }}
+                    >
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
+                            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                        </svg>
+                    </div>
+                    <h1 className="gradient-text" style={{ fontSize: '1.75rem', marginBottom: '0.5rem' }}>
+                        RentalGear
+                    </h1>
+                </Link>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
                     Masuk ke akun Anda
                 </p>

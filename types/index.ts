@@ -2,7 +2,7 @@
 
 export type UserRole = 'member' | 'admin' | 'gudang';
 
-export type StatusVerifikasi = 'pending' | 'approved' | 'rejected';
+export type StatusVerifikasi = 'unverified' | 'pending' | 'approved' | 'rejected';
 
 export type StatusTransaksi =
   | 'menunggu_pembayaran'

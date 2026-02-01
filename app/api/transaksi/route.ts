@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
             tanggalSelesai: t.tanggal_selesai,
             totalHari: t.total_hari,
             subtotal: t.subtotal,
-            totalHarga: t.total,
+            total: t.total,
             diskon: t.diskon,
             denda: t.denda,
             status: t.status,

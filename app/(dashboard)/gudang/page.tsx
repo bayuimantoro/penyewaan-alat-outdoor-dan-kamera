@@ -236,7 +236,18 @@ export default function GudangDashboard() {
                                         const member = users.find(u => u.id === trx.userId);
                                         const details = getTransactionDetails(trx.id);
                                         const barangNames = details.map(d => getBarangById(d.barangId)?.nama).filter(Boolean).join(', ');
-                                        const isOverdue = today > trx.tanggalSelesai;
+
+                                        // Robust overdue check: Compare DATES only, ignoring time
+                                        const checkOverdue = (dateStr: string) => {
+                                            const due = new Date(dateStr);
+                                            const now = new Date();
+                                            // Reset time part to compare pure dates
+                                            const dueDate = new Date(due.getFullYear(), due.getMonth(), due.getDate());
+                                            const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                                            return todayDate > dueDate;
+                                        };
+
+                                        const isOverdue = checkOverdue(trx.tanggalSelesai);
 
                                         return (
                                             <TableRow key={trx.id}>

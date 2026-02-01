@@ -132,7 +132,8 @@ const navigationConfig: Record<UserRole, NavSection[]> = {
         {
             title: 'Manajemen',
             items: [
-                { label: 'Validasi Member', href: '/admin/validasi', icon: <Icons.Users /> },
+                { label: 'Manajemen User', href: '/admin/users', icon: <Icons.Users /> },
+                { label: 'Validasi Member', href: '/admin/validasi', icon: <Icons.CheckSquare /> },
                 { label: 'Transaksi', href: '/admin/transaksi', icon: <Icons.CreditCard /> },
                 { label: 'Data Barang', href: '/admin/barang', icon: <Icons.Package /> },
                 { label: 'Promo', href: '/admin/promo', icon: <Icons.Tag /> },

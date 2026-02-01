@@ -457,7 +457,7 @@ export default function RiwayatPage() {
                                 <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
                                     📍 Jl. Rental No. 123, Jakarta<br />
                                     📅 {formatDate(payingTrx.tanggalMulai)}<br />
-                                    ⏰ 09:00 - 18:00 WIB
+                                    ⏰ 08:00 - 23:00 WIB
                                 </div>
                             </div>
                         </div>
@@ -514,7 +514,7 @@ export default function RiwayatPage() {
                             <div style={{ fontSize: '0.875rem' }}>
                                 <strong>📍 Lokasi Pengembalian:</strong><br />
                                 Jl. Rental No. 123, Jakarta<br />
-                                ⏰ 09:00 - 18:00 WIB
+                                ⏰ 08:00 - 23:00 WIB
                             </div>
                         </div>
 

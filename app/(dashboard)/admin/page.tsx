@@ -57,14 +57,15 @@ export default function AdminDashboard() {
     const activeTransaksi = transactions.filter(t => t.status !== 'selesai' && t.status !== 'dibatalkan');
     // Calculate revenue ONLY from completed/ongoing transactions (not pending payment)
     const totalRevenue = transactions
-        .filter(t => t.status === 'selesai' || t.status === 'sedang_disewa')
+        .filter(t => ['selesai', 'sedang_disewa', 'menunggu_pengembalian'].includes(t.status))
         .reduce((sum: number, t) => {
+            // Prioritize database total if available and valid
+            if (t.total > 0) return sum + Number(t.total);
+
+            // Fallback calculation
             const subtotal = Number(t.subtotal) || 0;
             const diskon = Number(t.diskon) || 0;
             const denda = Number(t.denda) || 0;
-
-            // Calculate correct total: Subtotal + Service (10k) - Discount + Denda
-            // We use calculated values instead of stored 'total' to ensure accuracy
             const biayaLayanan = subtotal > 0 ? 10000 : 0;
             const validTotal = subtotal + biayaLayanan - diskon + denda;
 
@@ -278,9 +279,9 @@ export default function AdminDashboard() {
 
                                 // Calculate display total
                                 const subtotal = Number(trx.subtotal) || 0;
-                                let displayTotal = 0;
+                                let displayTotal = Number(trx.total) || 0;
 
-                                if (subtotal > 0) {
+                                if (displayTotal === 0 && subtotal > 0) {
                                     const biayaLayanan = 10000;
                                     const diskon = Number(trx.diskon) || 0;
                                     displayTotal = subtotal + biayaLayanan - diskon;
@@ -416,11 +417,43 @@ export default function AdminDashboard() {
                                 )}
                             </div>
 
-                            {/* Total */}
+                            {/* Total & Breakdown */}
                             <div style={{ padding: '1rem', background: 'var(--bg-tertiary)', borderRadius: '0.75rem' }}>
+                                {/* Subtotal */}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                                    <span>Subtotal</span>
+                                    <span>{formatRupiah(subtotal)}</span>
+                                </div>
+
+                                {/* Biaya Layanan */}
+                                {subtotal > 0 && (
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>
+                                        <span>Biaya Layanan</span>
+                                        <span>{formatRupiah(10000)}</span>
+                                    </div>
+                                )}
+
+                                {/* Diskon */}
+                                {Number(selectedTrx.diskon) > 0 && (
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', color: 'var(--success)' }}>
+                                        <span>Diskon</span>
+                                        <span>-{formatRupiah(selectedTrx.diskon)}</span>
+                                    </div>
+                                )}
+
+                                {/* Denda */}
+                                {Number(selectedTrx.denda) > 0 && (
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', color: 'var(--error)' }}>
+                                        <span>Denda</span>
+                                        <span>+{formatRupiah(selectedTrx.denda)}</span>
+                                    </div>
+                                )}
+
+                                <div style={{ height: '1px', background: 'var(--border-color)', margin: '0.5rem 0' }} />
+
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '1.125rem' }}>
                                     <span>Total</span>
-                                    <span className="gradient-text">{formatRupiah(modalDisplayTotal)}</span>
+                                    <span className="gradient-text">{formatRupiah(modalDisplayTotal + Number(selectedTrx.denda || 0))}</span>
                                 </div>
                             </div>
 
