@@ -21,10 +21,18 @@ export async function GET() {
 
             // Ensure table `barang` has `denda` column
             try {
-                // Add denda column if not exists (using denda to match seed script logic)
+                // Add denda column if not exists
                 await connection.query('ALTER TABLE barang ADD COLUMN denda DECIMAL(12,2) DEFAULT 0 AFTER harga_sewa_per_hari');
             } catch (err: any) {
                 if (err.code !== 'ER_DUP_FIELDNAME') console.warn('Warning adding denda:', err.message);
+            }
+
+            // Ensure table `barang` has `stok_maintenance` and `stok_rusak` columns
+            try {
+                await connection.query('ALTER TABLE barang ADD COLUMN stok_maintenance INT DEFAULT 0 AFTER stok');
+                await connection.query('ALTER TABLE barang ADD COLUMN stok_rusak INT DEFAULT 0 AFTER stok_maintenance');
+            } catch (err: any) {
+                if (err.code !== 'ER_DUP_FIELDNAME') console.warn('Warning adding stock columns:', err.message);
             }
 
             // Truncate tables

@@ -238,13 +238,19 @@ export default function GudangDashboard() {
                                         const barangNames = details.map(d => getBarangById(d.barangId)?.nama).filter(Boolean).join(', ');
 
                                         // Robust overdue check: Compare DATES only, ignoring time
+                                        // Robust overdue check: Compare DATES only, ignoring time and timezone shifts
                                         const checkOverdue = (dateStr: string) => {
-                                            const due = new Date(dateStr);
+                                            // Ensure we parse "YYYY-MM-DD" as local date, avoiding UTC conversion shifts
+                                            // "2026-02-02" -> Parts [2026, 2, 2]
+                                            const parts = dateStr.split('-').map(Number);
+                                            // Note: Month is 0-indexed in JS Date (0=Jan, 1=Feb)
+                                            const dueDate = new Date(parts[0], parts[1] - 1, parts[2]);
+
                                             const now = new Date();
-                                            // Reset time part to compare pure dates
-                                            const dueDate = new Date(due.getFullYear(), due.getMonth(), due.getDate());
                                             const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                                            return todayDate > dueDate;
+
+                                            // Compare timestamps
+                                            return todayDate.getTime() > dueDate.getTime();
                                         };
 
                                         const isOverdue = checkOverdue(trx.tanggalSelesai);
@@ -273,14 +279,14 @@ export default function GudangDashboard() {
                 </div>
             )}
 
-            {/* Maintenance Items */}
+            {/* Maintenance Items - Updated to use split stock columns */}
             <Card hover={false}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <CardTitle>Barang Perlu Perhatian ({maintenanceItems.length})</CardTitle>
+                    <CardTitle>Barang Perlu Perhatian ({barangList.filter(b => (b.stokMaintenance || 0) > 0 || (b.stokRusak || 0) > 0).length})</CardTitle>
                     <Link href="/gudang/maintenance" style={{ fontSize: '0.875rem' }}>Lihat Semua →</Link>
                 </div>
                 <CardContent>
-                    {maintenanceItems.length === 0 ? (
+                    {barangList.filter(b => (b.stokMaintenance || 0) > 0 || (b.stokRusak || 0) > 0).length === 0 ? (
                         <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
                             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" style={{ margin: '0 auto 0.5rem' }}>
                                 <polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
@@ -288,23 +294,43 @@ export default function GudangDashboard() {
                             <p>Semua barang dalam kondisi baik!</p>
                         </div>
                     ) : (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
-                            {maintenanceItems.slice(0, 6).map(barang => (
-                                <div key={barang.id} style={{ padding: '1rem', background: 'var(--bg-tertiary)', borderRadius: '0.75rem', border: '1px solid var(--border-color)' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-                                        <div>
-                                            <div style={{ fontWeight: 600 }}>{barang.nama}</div>
-                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{barang.kode}</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
+                            {barangList
+                                .filter(b => (b.stokMaintenance || 0) > 0 || (b.stokRusak || 0) > 0)
+                                .slice(0, 6)
+                                .map(barang => (
+                                    <div key={barang.id} style={{ padding: '1rem', background: 'var(--bg-tertiary)', borderRadius: '0.75rem', border: '1px solid var(--border-color)' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                                            <div>
+                                                <div style={{ fontWeight: 600 }}>{barang.nama}</div>
+                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{barang.kode}</div>
+                                            </div>
                                         </div>
-                                        <StatusBadge status={barang.status} />
+
+                                        {/* Stock Details */}
+                                        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                                            {(barang.stokMaintenance || 0) > 0 && (
+                                                <div style={{ flex: 1, padding: '0.5rem', background: 'rgba(234, 179, 8, 0.1)', borderRadius: '0.5rem', border: '1px solid rgba(234, 179, 8, 0.2)' }}>
+                                                    <div style={{ fontSize: '0.7rem', color: 'var(--warning)', fontWeight: 600 }}>MAINTENANCE</div>
+                                                    <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--warning)' }}>{barang.stokMaintenance}</div>
+                                                </div>
+                                            )}
+
+                                            {(barang.stokRusak || 0) > 0 && (
+                                                <div style={{ flex: 1, padding: '0.5rem', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '0.5rem', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                                                    <div style={{ fontSize: '0.7rem', color: 'var(--error)', fontWeight: 600 }}>RUSAK</div>
+                                                    <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--error)' }}>{barang.stokRusak}</div>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <Link href="/gudang/maintenance">
+                                            <Button size="sm" variant="secondary" style={{ width: '100%', marginTop: '0.75rem' }}>
+                                                Lihat Detail
+                                            </Button>
+                                        </Link>
                                     </div>
-                                    <Link href="/gudang/maintenance">
-                                        <Button size="sm" variant="secondary" style={{ width: '100%', marginTop: '0.75rem' }}>
-                                            Update Status
-                                        </Button>
-                                    </Link>
-                                </div>
-                            ))}
+                                ))}
                         </div>
                     )}
                 </CardContent>

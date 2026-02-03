@@ -10,6 +10,7 @@ interface UserRow extends RowDataPacket {
     alamat: string;
     role: string;
     status_verifikasi: string;
+    foto_ktp: string | null;
     created_at: Date;
 }
 
@@ -17,7 +18,7 @@ interface UserRow extends RowDataPacket {
 export async function GET() {
     try {
         const [users] = await pool.query<UserRow[]>(
-            `SELECT id, nama, email, no_hp, alamat, role, status_verifikasi, created_at 
+            `SELECT id, nama, email, no_hp, alamat, role, status_verifikasi, foto_ktp, created_at 
              FROM users 
              WHERE role = 'member' 
              ORDER BY created_at DESC`
@@ -32,6 +33,7 @@ export async function GET() {
             alamat: user.alamat,
             role: user.role,
             statusVerifikasi: user.status_verifikasi,
+            fotoKtp: user.foto_ktp,
             createdAt: user.created_at
         }));
 
@@ -100,7 +102,7 @@ export async function PUT(request: NextRequest) {
     }
 }
 
-// DELETE - Hapus member
+// DELETE - Hapus member beserta file KTP
 export async function DELETE(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
@@ -113,6 +115,39 @@ export async function DELETE(request: NextRequest) {
             );
         }
 
+        // First, get the user to find KTP file path
+        const [users] = await pool.query<UserRow[]>(
+            'SELECT foto_ktp FROM users WHERE id = ? AND role = "member"',
+            [userId]
+        );
+
+        if (users.length === 0) {
+            return NextResponse.json(
+                { success: false, message: 'User tidak ditemukan atau bukan member' },
+                { status: 404 }
+            );
+        }
+
+        const fotoKtpPath = users[0].foto_ktp;
+
+        // Delete KTP file if exists
+        if (fotoKtpPath) {
+            const fs = require('fs');
+            const path = require('path');
+            const fullPath = path.join(process.cwd(), 'public', fotoKtpPath);
+
+            try {
+                if (fs.existsSync(fullPath)) {
+                    fs.unlinkSync(fullPath);
+                    console.log('KTP file deleted:', fullPath);
+                }
+            } catch (fileError) {
+                // Log but don't fail if file deletion fails
+                console.error('Failed to delete KTP file:', fileError);
+            }
+        }
+
+        // Delete user from database
         const [result] = await pool.query<ResultSetHeader>(
             'DELETE FROM users WHERE id = ? AND role = "member"',
             [userId]
@@ -120,14 +155,14 @@ export async function DELETE(request: NextRequest) {
 
         if (result.affectedRows === 0) {
             return NextResponse.json(
-                { success: false, message: 'User tidak ditemukan atau bukan member' },
-                { status: 404 }
+                { success: false, message: 'Gagal menghapus user' },
+                { status: 500 }
             );
         }
 
         return NextResponse.json({
             success: true,
-            message: 'Member berhasil dihapus'
+            message: 'Member dan data KTP berhasil dihapus'
         });
 
     } catch (error: any) {

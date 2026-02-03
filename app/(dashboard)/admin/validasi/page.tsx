@@ -15,6 +15,7 @@ interface DisplayMember {
     email: string;
     noHp: string;
     alamat: string;
+    fotoKtp: string | null;
     statusVerifikasi: 'pending' | 'approved' | 'rejected';
     createdAt: string;
 }
@@ -253,13 +254,32 @@ export default function ValidasiMemberPage() {
                             <div>{selectedMember.alamat || '-'}</div>
                         </div>
                         <div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Foto KTP</div>
-                            <div style={{ padding: '2rem', background: 'var(--bg-tertiary)', borderRadius: '0.75rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" style={{ margin: '0 auto 0.5rem' }}>
-                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
-                                </svg>
-                                <p>KTP preview placeholder</p>
-                            </div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Foto KTP/SIM</div>
+                            {selectedMember.fotoKtp ? (
+                                <div style={{
+                                    borderRadius: '0.75rem',
+                                    overflow: 'hidden',
+                                    border: '1px solid var(--border-color)'
+                                }}>
+                                    <img
+                                        src={selectedMember.fotoKtp}
+                                        alt="Foto KTP"
+                                        style={{
+                                            width: '100%',
+                                            maxHeight: '300px',
+                                            objectFit: 'contain',
+                                            background: 'var(--bg-tertiary)'
+                                        }}
+                                    />
+                                </div>
+                            ) : (
+                                <div style={{ padding: '2rem', background: 'var(--bg-tertiary)', borderRadius: '0.75rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" style={{ margin: '0 auto 0.5rem' }}>
+                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
+                                    </svg>
+                                    <p>Belum upload KTP</p>
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}

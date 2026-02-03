@@ -95,6 +95,7 @@ export function getBarangStatusLabel(status: StatusBarang): string {
 // Get verification status badge class
 export function getVerifikasiClass(status: StatusVerifikasi): string {
     const statusMap: Record<StatusVerifikasi, string> = {
+        unverified: 'badge-info',
         pending: 'badge-pending',
         approved: 'badge-success',
         rejected: 'badge-error',

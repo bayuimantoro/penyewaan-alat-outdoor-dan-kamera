@@ -47,6 +47,8 @@ export interface Barang {
   hargaSewaPerHari?: number; // From mock data (legacy)
   dendaPerHari?: number;
   stok: number;
+  stokMaintenance?: number; // New field
+  stokRusak?: number;       // New field
   gambar?: string;          // From database API
   foto?: string[];          // From mock data (legacy)
   status: StatusBarang;

@@ -17,6 +17,7 @@ interface BarangContextType {
     increaseStock: (barangId: number, qty: number) => Promise<boolean>;
     processCheckout: (details: DetailTransaksi[]) => Promise<boolean>;
     processReturn: (details: DetailTransaksi[]) => Promise<boolean>;
+    updateStockCategory: (barangId: number, action: 'maintenance' | 'rusak', qty: number) => Promise<boolean>;
 }
 
 const BarangContext = createContext<BarangContextType | undefined>(undefined);
@@ -186,6 +187,36 @@ export function BarangProvider({ children }: { children: ReactNode }) {
         }
     };
 
+    // Move stock to special categories (maintenance/rusak)
+    const updateStockCategory = async (barangId: number, action: 'maintenance' | 'rusak', qty: number): Promise<boolean> => {
+        try {
+            const response = await fetch('/api/barang/stock', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: barangId, action, qty })
+            });
+            const data = await response.json();
+            if (data.success) {
+                // Update local state without refetching everything if possible
+                setBarang(prev => prev.map(b => {
+                    if (b.id === barangId) {
+                        return {
+                            ...b,
+                            stokMaintenance: action === 'maintenance' ? (b.stokMaintenance || 0) + qty : b.stokMaintenance,
+                            stokRusak: action === 'rusak' ? (b.stokRusak || 0) + qty : b.stokRusak
+                        };
+                    }
+                    return b;
+                }));
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Error updating stock category:', error);
+            return false;
+        }
+    };
+
     return (
         <BarangContext.Provider value={{
             barang,
@@ -199,7 +230,8 @@ export function BarangProvider({ children }: { children: ReactNode }) {
             decreaseStock,
             increaseStock,
             processCheckout,
-            processReturn
+            processReturn,
+            updateStockCategory // Exposed function
         }}>
             {children}
         </BarangContext.Provider>

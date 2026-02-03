@@ -168,47 +168,7 @@ export default function LoginPage() {
                 </Link>
             </p>
 
-            {/* Demo credentials */}
-            <div
-                style={{
-                    marginTop: '1.5rem',
-                    padding: '1rem',
-                    background: 'rgba(217, 70, 239, 0.1)',
-                    borderRadius: '0.75rem',
-                    border: '1px solid rgba(217, 70, 239, 0.2)',
-                }}
-            >
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
-                    Demo Login (email / password):
-                </p>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                    <p>• <strong>admin@rentalgear.com</strong> / 123456 → Admin</p>
-                    <p>• <strong>gudang@rentalgear.com</strong> / 123456 → Gudang</p>
-                    <p>• <strong>ahmad@gmail.com</strong> / 123456 → Member</p>
-                </div>
-            </div>
-            {/* Reset Button */}
-            <div style={{ marginTop: '2rem', textAlign: 'center' }}>
-                <button
-                    type="button"
-                    onClick={() => {
-                        if (window.confirm('Reset semua data demo ke awal? Transaksi dan user baru akan dihapus.')) {
-                            localStorage.clear();
-                            window.location.reload();
-                        }
-                    }}
-                    style={{
-                        background: 'none',
-                        border: 'none',
-                        color: 'var(--text-muted)',
-                        fontSize: '0.75rem',
-                        cursor: 'pointer',
-                        textDecoration: 'underline'
-                    }}
-                >
-                    Reset Data Demo
-                </button>
-            </div>
+
         </div>
     );
 }
